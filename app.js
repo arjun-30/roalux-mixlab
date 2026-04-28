@@ -589,7 +589,7 @@
 
                 ${stageBlocks}
                 <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 11px; color: #94a3b8;">
-                    End of Formulation Sheet — Roalux MixLab v2.1
+                    End of Formulation Sheet — MixLab v2.1
                 </div>
             </body></html>`;
 
@@ -793,7 +793,7 @@
 
                             const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
-<title>Price Estimate — ${esc(p.name)} — Roalux MixLab</title>
+<title>Price Estimate — ${esc(p.name)} — MixLab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
@@ -841,7 +841,7 @@ td{padding:7px 12px;border-bottom:1px solid #f0f0f0}
     <div class="brand">
       <img src="${APP_LOGO_BASE64}" style="height: 48px; width: auto; margin-bottom: 4px;">
       <div>
-        <div class="brand-name">ROALUX <span>MIX</span>LAB</div>
+        <div class="brand-name"><span>MIX</span>LAB</div>
         <div class="brand-sub">Paint Formulation System</div>
       </div>
     </div>
@@ -893,7 +893,7 @@ td{padding:7px 12px;border-bottom:1px solid #f0f0f0}
   </table>` : ''}
 
   <div class="footer">
-    <span>Roalux MixLab — Paint Formulation System</span>
+    <span>MixLab — Paint Formulation System</span>
     <span>${esc(p.name)} &bull; ${date}</span>
     <span>Confidential</span>
   </div>
@@ -906,7 +906,7 @@ td{padding:7px 12px;border-bottom:1px solid #f0f0f0}
                             else {
                                 const a = document.createElement('a');
                                 a.href = url;
-                                a.download = 'roalux-estimate-' + p.name.replace(/\s+/g, '-').toLowerCase() + '.html';
+                                a.download = 'mixlab-estimate-' + p.name.replace(/\s+/g, '-').toLowerCase() + '.html';
                                 a.click();
                             }
                             setTimeout(() => URL.revokeObjectURL(url), 8000);

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roalux MixLab — Paint Mix Calculator</title>
+    <title>MixLab — Paint Mix Calculator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
@@ -235,10 +235,7 @@
             text-transform: uppercase;
         }
 
-        .role-badge.labour {
-            background: rgba(16, 185, 129, 0.15);
-            color: #34d399;
-        }
+
 
         .role-badge.manager {
             background: rgba(139, 92, 246, 0.15);
@@ -1159,7 +1156,7 @@
                         <img src="Roalux_PNG.png" alt="Roalux MixLab Logo" style="width: 36px; height: 36px; object-fit: contain;">
                     </div>
                     <div>
-                        <div class="logo-text">ROALUX <span>MIX</span></div>
+                        <div class="logo-text"><span>MIX</span>LAB</div>
                         <div class="logo-sub">Paint Formulation</div>
                     </div>
                 </div>
@@ -1236,7 +1233,7 @@
                     style="width:100%; justify-content:center; margin-bottom:10px; font-weight:700;">
                     SIGN IN
                 </button>
-                <p>© 2026 Roalux MixLab</p>
+                <p>© 2026 MixLab</p>
                 <p style="margin-top:3px">v3.0 — Multi-Role System</p>
             </div>
         </aside>
@@ -1251,15 +1248,11 @@
                         <div style="color:var(--brand); display:flex; justify-content:center; margin-bottom:16px;">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
                         </div>
-                        <h2>Roalux MixLab</h2>
+                        <h2><img src="Roalux_PNG.png" alt="Roalux Logo" style="height: 32px; vertical-align: middle; margin-right: 8px;"> MixLab</h2>
                         <p id="login-sub">Select your role to continue</p>
 
                         <div class="role-selector" id="role-selector">
-                            <div class="role-btn green-role" onclick="selectRole('labour')" id="role-btn-labour">
-                                <div class="role-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></div>
-                                <div class="role-name">Labour</div>
-                                <div class="role-desc">Mix Calculator</div>
-                            </div>
+
                             <div class="role-btn purple-role" onclick="selectRole('manager')" id="role-btn-manager">
                                 <div class="role-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
                                 <div class="role-name">Manager</div>
@@ -1660,7 +1653,7 @@
         let products = [];    // product formulas
         let stocks = {};      // { itemId: { qty: number, threshold: number, avgPrice: number } }
         // avgPrice = weighted average cost per unit, updated when manager adds stock with a price
-        let currentRole = null; // 'labour' | 'manager' | 'admin'
+        let currentRole = null; // 'manager' | 'admin'
         let selectedLoginRole = null;
 
         const PASSWORDS = {
@@ -1731,10 +1724,7 @@
 
             document.getElementById('login-error').style.display = 'none';
 
-            if (role === 'labour') {
-                document.getElementById('pw-field').style.display = 'none';
-                document.getElementById('login-sub').textContent = 'Labour: Mix Calculator access';
-            } else if (role === 'manager') {
+            if (role === 'manager') {
                 document.getElementById('pw-field').style.display = 'block';
                 document.getElementById('pw-label').textContent = 'Manager Password';
                 document.getElementById('login-sub').textContent = 'Manager: Stock management + Calculator';
@@ -1759,13 +1749,8 @@
             const errEl = document.getElementById('login-error');
             errEl.style.display = 'none';
 
-            if (selectedLoginRole === 'labour') {
-                currentRole = 'labour';
-                applyRole('labour');
-                showTab('user-calc');
-            } else {
-                const pw = document.getElementById('admin-pw').value;
-                if (pw === PASSWORDS[selectedLoginRole]) {
+            const pw = document.getElementById('admin-pw').value;
+            if (pw === PASSWORDS[selectedLoginRole]) {
                     currentRole = selectedLoginRole;
                     applyRole(selectedLoginRole);
                     showTab(selectedLoginRole === 'manager' ? 'stock' : 'items');
@@ -1774,7 +1759,6 @@
                     errEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Incorrect password. Please try again.';
                     document.getElementById('admin-pw').value = '';
                     document.getElementById('admin-pw').focus();
-                }
             }
         }
 
@@ -1798,12 +1782,7 @@
             loginBtn.textContent = 'SIGN OUT';
             loginBtn.className = 'btn btn-xs btn-danger';
 
-            if (role === 'labour') {
-                badge.textContent = ''; badge.innerHTML = '<div class="role-dot"></div> Labour';
-                badge.className = 'role-badge labour';
-                managerSections.forEach(el => el.style.display = 'none');
-                adminSections.forEach(el => el.style.display = 'none');
-            } else if (role === 'manager') {
+            if (role === 'manager') {
                 badge.innerHTML = '<div class="role-dot"></div> Manager';
                 badge.className = 'role-badge manager';
                 managerSections.forEach(el => el.style.display = 'block');
@@ -1826,9 +1805,7 @@
             if (!currentRole && (t === 'stock' || t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
                 t = 'login'; resetLoginForm();
             }
-            if (currentRole === 'labour' && (t === 'stock' || t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
-                t = 'user-calc';
-            }
+
             if (currentRole === 'manager' && (t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
                 t = 'stock';
             }
@@ -2595,7 +2572,7 @@
                 const stageTitle = stageNameEsc.startsWith('STAGE') ? stageNameEsc : `STAGE ${i + 1}: ${stageNameEsc}`;
                 return `<div style="margin-bottom:25px;border:1.5px solid #0f172a;border-radius:8px;overflow:hidden"><div style="background:#0f172a;color:#fff;padding:10px 15px;font-weight:700">${stageTitle}</div><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc;font-size:11px;color:#64748b;text-transform:uppercase"><th style="text-align:left;padding:8px 15px">Raw Material</th><th style="text-align:right;padding:8px 15px">Quantity</th><th style="text-align:left;padding:8px 15px">Unit</th></tr></thead><tbody>${itemsRows}</tbody></table></div>`;
             }).join('');
-            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Operator Sheet — ${esc(p.name)}</title><style>body{font-family:'Inter',sans-serif;padding:40px;color:#0f172a}</style></head><body><div style="margin-bottom:20px;text-align:right"><button onclick="window.print()" style="padding:10px 20px;background:#0f172a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">Print Sheet</button></div><div style="border-bottom:3px solid #0f172a;padding-bottom:20px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:flex-end"><div style="display:flex;align-items:center;gap:12px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg><div><div style="font-family:sans-serif;font-size:24px;font-weight:800">ROALUX MIXLAB</div><div style="font-size:12px;color:#64748b;margin-top:4px">Paint Formulation System — Operator Sheet</div></div></div><div style="text-align:right;font-size:12px;color:#64748b">Generated: ${date} at ${time}</div></div><div style="background:#f1f5f9;padding:15px 20px;border-radius:10px;margin-bottom:30px;display:flex;gap:40px"><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Product</div><div style="font-weight:800;font-size:18px">${esc(p.name)}</div></div><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Target Yield</div><div style="font-weight:800;font-size:18px">${qty} kg</div></div><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Total Input</div><div style="font-weight:800;font-size:18px">${actualRawSum.toFixed(3)} kg</div></div></div>${stageBlocks}<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;text-align:center;font-size:11px;color:#94a3b8">End of Formulation Sheet — Roalux MixLab v3.0</div></body></html>`;
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Operator Sheet — ${esc(p.name)}</title><style>body{font-family:'Inter',sans-serif;padding:40px;color:#0f172a}</style></head><body><div style="margin-bottom:20px;text-align:right"><button onclick="window.print()" style="padding:10px 20px;background:#0f172a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">Print Sheet</button></div><div style="border-bottom:3px solid #0f172a;padding-bottom:20px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:flex-end"><div style="display:flex;align-items:center;gap:12px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg><div><div style="font-family:sans-serif;font-size:24px;font-weight:800"><img src="Roalux_PNG.png" alt="Roalux Logo" style="height: 32px; vertical-align: middle; margin-right: 8px;"> MIXLAB</div><div style="font-size:12px;color:#64748b;margin-top:4px">Paint Formulation System — Operator Sheet</div></div></div><div style="text-align:right;font-size:12px;color:#64748b">Generated: ${date} at ${time}</div></div><div style="background:#f1f5f9;padding:15px 20px;border-radius:10px;margin-bottom:30px;display:flex;gap:40px"><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Product</div><div style="font-weight:800;font-size:18px">${esc(p.name)}</div></div><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Target Yield</div><div style="font-weight:800;font-size:18px">${qty} kg</div></div><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Total Input</div><div style="font-weight:800;font-size:18px">${actualRawSum.toFixed(3)} kg</div></div></div>${stageBlocks}<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;text-align:center;font-size:11px;color:#94a3b8">End of Formulation Sheet — Roalux MixLab v3.0</div></body></html>`;
             const win = window.open('', '_blank');
             win.document.write(html); win.document.close();
         }
@@ -2768,7 +2745,7 @@
                 const subRows = ss.items.map(r => `<tr style="background:#f9f9f9"><td style="padding:6px 12px 6px 30px;color:#555;font-size:12px">${esc(r.name)}</td><td style="padding:6px 12px;color:#555;font-size:12px">${r.scaledQty.toFixed(4)} ${r.unit}</td><td style="padding:6px 12px;color:#555;font-size:12px">Rs. ${r.price.toFixed(2)}</td><td style="padding:6px 12px;text-align:right;font-size:12px">Rs. ${r.cost.toFixed(2)}</td></tr>`).join('');
                 return `<tr style="background:#eef3f9"><td style="padding:8px 12px;font-weight:700">${esc(ss.name)}</td><td colspan="2" style="padding:8px 12px;font-size:11px;color:#6b7f96">${ss.items.length} ingredient${ss.items.length !== 1 ? 's' : ''}</td><td style="padding:8px 12px;text-align:right;font-weight:700">Rs. ${ss.cost.toFixed(2)}</td></tr>${subRows}`;
             }).join('');
-            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Price Estimate — ${esc(p.name)}</title><style>*{box-sizing:border-box}body{font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:#0f1923;padding:40px}table{width:100%;border-collapse:collapse;margin-bottom:24px}th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;color:#6b7f96;text-transform:uppercase;border-bottom:1.5px solid #e2eaf2;background:#f8f9fb}td{padding:7px 12px;border-bottom:1px solid #f0f0f0}.no-print{margin-bottom:20px}@media print{.no-print{display:none}}</style></head><body><div class="no-print"><button onclick="window.print()" style="padding:10px 22px;background:#0f172a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Print / Save as PDF</button></div><div style="border-bottom:3px solid #0f172a;padding-bottom:20px;margin-bottom:30px;display:flex;justify-content:space-between"><div style="display:flex;align-items:center;gap:12px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg><div><div style="font-size:22px;font-weight:900">ROALUX MIXLAB</div><div style="font-size:11px;color:#64748b">Paint Formulation System</div></div></div><div style="text-align:right"><div style="font-size:20px;font-weight:800">Price Estimate</div><div style="font-size:11px;color:#aaa">${date}</div></div></div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px">${[['Product', esc(p.name)], ['Batch', p.batch + ' kg'], ['Required', qty + ' kg'], ['Scale', scale.toFixed(4) + '×'], ['Margin', margin + '%']].map(([l, v]) => `<div style="background:#f4f7fc;border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:#6b7f96;text-transform:uppercase;font-weight:600;margin-bottom:3px">${l}</div><div style="font-size:13px;font-weight:700">${v}</div></div>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px">${[['Total Material Cost', 'Rs. ' + totalCost.toFixed(2)], ['Cost per kg', 'Rs. ' + (qty > 0 ? (totalCost / qty).toFixed(2) : '0.00')], ['Selling Price (' + margin + '%)', 'Rs. ' + salePrice.toFixed(2)]].map(([l, v]) => `<div style="border:1.5px solid #e2eaf2;border-radius:10px;padding:14px 16px;text-align:center"><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:10px;color:#6b7f96;text-transform:uppercase;margin-top:4px">${l}</div></div>`).join('')}</div><table><thead><tr><th>Stage / Ingredient</th><th>Quantity</th><th>Rate</th><th style="text-align:right">Cost</th></tr></thead><tbody>${stageBlocks}<tr style="border-top:2px solid #c8d6e5"><td colspan="3" style="font-weight:700;padding-top:12px">Total Material Cost</td><td style="text-align:right;font-weight:700;padding-top:12px">Rs. ${totalCost.toFixed(2)}</td></tr><tr><td colspan="3" style="color:#555">Profit Margin (${margin}%)</td><td style="text-align:right;color:#555">Rs. ${(salePrice - totalCost).toFixed(2)}</td></tr><tr><td colspan="3" style="font-weight:800;font-size:15px;color:#00a381">Estimated Selling Price</td><td style="text-align:right;font-weight:800;font-size:15px;color:#00a381">Rs. ${salePrice.toFixed(2)}</td></tr></tbody></table><div style="text-align:center;font-size:10px;color:#aaa;margin-top:32px;padding-top:12px;border-top:1px solid #eee">Roalux MixLab v3.0 — Confidential</div></body></html>`;
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Price Estimate — ${esc(p.name)}</title><style>*{box-sizing:border-box}body{font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:#0f1923;padding:40px}table{width:100%;border-collapse:collapse;margin-bottom:24px}th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;color:#6b7f96;text-transform:uppercase;border-bottom:1.5px solid #e2eaf2;background:#f8f9fb}td{padding:7px 12px;border-bottom:1px solid #f0f0f0}.no-print{margin-bottom:20px}@media print{.no-print{display:none}}</style></head><body><div class="no-print"><button onclick="window.print()" style="padding:10px 22px;background:#0f172a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Print / Save as PDF</button></div><div style="border-bottom:3px solid #0f172a;padding-bottom:20px;margin-bottom:30px;display:flex;justify-content:space-between"><div style="display:flex;align-items:center;gap:12px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg><div><div style="font-size:22px;font-weight:900"><img src="Roalux_PNG.png" alt="Roalux Logo" style="height: 28px; vertical-align: middle; margin-right: 8px;"> MIXLAB</div><div style="font-size:11px;color:#64748b">Paint Formulation System</div></div></div><div style="text-align:right"><div style="font-size:20px;font-weight:800">Price Estimate</div><div style="font-size:11px;color:#aaa">${date}</div></div></div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px">${[['Product', esc(p.name)], ['Batch', p.batch + ' kg'], ['Required', qty + ' kg'], ['Scale', scale.toFixed(4) + '×'], ['Margin', margin + '%']].map(([l, v]) => `<div style="background:#f4f7fc;border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:#6b7f96;text-transform:uppercase;font-weight:600;margin-bottom:3px">${l}</div><div style="font-size:13px;font-weight:700">${v}</div></div>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px">${[['Total Material Cost', 'Rs. ' + totalCost.toFixed(2)], ['Cost per kg', 'Rs. ' + (qty > 0 ? (totalCost / qty).toFixed(2) : '0.00')], ['Selling Price (' + margin + '%)', 'Rs. ' + salePrice.toFixed(2)]].map(([l, v]) => `<div style="border:1.5px solid #e2eaf2;border-radius:10px;padding:14px 16px;text-align:center"><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:10px;color:#6b7f96;text-transform:uppercase;margin-top:4px">${l}</div></div>`).join('')}</div><table><thead><tr><th>Stage / Ingredient</th><th>Quantity</th><th>Rate</th><th style="text-align:right">Cost</th></tr></thead><tbody>${stageBlocks}<tr style="border-top:2px solid #c8d6e5"><td colspan="3" style="font-weight:700;padding-top:12px">Total Material Cost</td><td style="text-align:right;font-weight:700;padding-top:12px">Rs. ${totalCost.toFixed(2)}</td></tr><tr><td colspan="3" style="color:#555">Profit Margin (${margin}%)</td><td style="text-align:right;color:#555">Rs. ${(salePrice - totalCost).toFixed(2)}</td></tr><tr><td colspan="3" style="font-weight:800;font-size:15px;color:#00a381">Estimated Selling Price</td><td style="text-align:right;font-weight:800;font-size:15px;color:#00a381">Rs. ${salePrice.toFixed(2)}</td></tr></tbody></table><div style="text-align:center;font-size:10px;color:#aaa;margin-top:32px;padding-top:12px;border-top:1px solid #eee">Roalux MixLab v3.0 — Confidential</div></body></html>`;
             const win = window.open('', '_blank');
             win.document.write(html); win.document.close();
         }
