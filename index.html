@@ -1,0 +1,2808 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roalux MixLab — Paint Mix Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --ink: #0f172a;
+            --ink2: #1e293b;
+            --ink3: #334155;
+            --brand: #2563eb;
+            --brand-dark: #1e40af;
+            --brand-dim: rgba(37, 99, 235, 0.1);
+            --slate: #f8fafc;
+            --slate2: #f1f5f9;
+            --slate3: #e2e8f0;
+            --white: #ffffff;
+            --muted: #64748b;
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --gold: #f59e0b;
+            --green: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.1);
+            --purple: #8b5cf6;
+            --purple-dim: rgba(139, 92, 246, 0.1);
+            --border: rgba(0, 0, 0, 0.05);
+            --border2: rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 18px;
+            --font-display: 'Plus Jakarta Sans', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-size: 14px;
+            color: var(--ink);
+            background: #ecf0f5;
+            min-height: 100vh;
+        }
+
+        /* ── SIDEBAR ── */
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 230px;
+            min-height: 100vh;
+            background: var(--ink);
+            border-right: none;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .sidebar-logo {
+            padding: 28px 22px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .logo-mark {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--brand);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .logo-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .logo-text {
+            font-family: var(--font-display);
+            font-size: 17px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.3px;
+            line-height: 1;
+        }
+
+        .logo-text span {
+            color: var(--brand);
+        }
+
+        .logo-sub {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .sidebar-nav {
+            padding: 20px 14px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .nav-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.35);
+            padding: 0 8px;
+            margin-bottom: 8px;
+            margin-top: 20px;
+        }
+
+        .nav-label:first-child {
+            margin-top: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.18s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            position: relative;
+            margin-bottom: 2px;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background: var(--brand);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        .nav-icon {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+
+        .nav-item.active .nav-icon,
+        .nav-item:hover .nav-icon {
+            opacity: 1;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: var(--brand);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 20px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .nav-item.active .nav-badge {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .sidebar-footer {
+            padding: 16px 22px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-footer p {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: 0.3px;
+        }
+
+        /* Role badge in sidebar */
+        .role-badge-wrap {
+            padding: 12px 22px 0;
+        }
+
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .role-badge.labour {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .role-badge.manager {
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+        }
+
+        .role-badge.admin {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .role-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* ── MAIN ── */
+        .main {
+            margin-left: 230px;
+            flex: 1;
+            padding: 32px 32px 48px;
+            min-height: 100vh;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .page-title {
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--ink);
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+        }
+
+        .page-subtitle {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 5px;
+            font-weight: 400;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 22px 24px;
+            margin-bottom: 18px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--slate2);
+        }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--brand-dim);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-icon svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--brand);
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+
+        /* ── FORM ── */
+        .form-grid {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .field label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        input[type=text],
+        input[type=number],
+        select {
+            height: 38px;
+            padding: 0 12px;
+            border: 1.5px solid var(--slate3);
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-family: var(--font-body);
+            color: var(--ink);
+            background: var(--slate);
+            outline: none;
+            transition: all 0.15s;
+            -webkit-appearance: none;
+        }
+
+        input[type=text]:focus,
+        input[type=number]:focus,
+        select:focus {
+            border-color: var(--brand);
+            background: white;
+        }
+
+        input[type=text] {
+            min-width: 160px;
+        }
+
+        input[type=number] {
+            width: 120px;
+        }
+
+        select {
+            min-width: 100px;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7f96' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 28px;
+        }
+
+        /* ── BUTTONS ── */
+        .btn {
+            height: 38px;
+            padding: 0 18px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1.5px solid var(--slate3);
+            background: var(--white);
+            color: var(--ink2);
+            font-family: var(--font-body);
+            transition: all 0.15s;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: var(--slate);
+        }
+
+        .btn-primary {
+            background: var(--ink);
+            color: #fff;
+            border-color: var(--ink);
+        }
+
+        .btn-primary:hover {
+            background: var(--ink2);
+        }
+
+        .btn-brand {
+            background: var(--brand);
+            color: #fff;
+            border-color: var(--brand);
+            font-weight: 700;
+        }
+
+        .btn-brand:hover {
+            background: var(--brand-dark);
+        }
+
+        .btn-danger {
+            color: var(--danger);
+            border-color: #fbd5d0;
+            background: var(--danger-bg);
+        }
+
+        .btn-danger:hover {
+            background: #fce8e5;
+        }
+
+        .btn-ghost {
+            border-color: transparent;
+            background: var(--brand-dim);
+            color: var(--brand-dark);
+            font-weight: 600;
+        }
+
+        .btn-ghost:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .btn-green {
+            background: var(--green);
+            color: #fff;
+            border-color: var(--green);
+        }
+
+        .btn-green:hover {
+            background: #059669;
+        }
+
+        .btn-purple {
+            background: var(--purple);
+            color: #fff;
+            border-color: var(--purple);
+        }
+
+        .btn-purple:hover {
+            background: #7c3aed;
+        }
+
+        .btn-sm {
+            height: 30px;
+            padding: 0 12px;
+            font-size: 12px;
+            border-radius: 8px;
+        }
+
+        .btn-xs {
+            height: 26px;
+            padding: 0 9px;
+            font-size: 11px;
+            border-radius: 7px;
+        }
+
+        /* ── TABLE ── */
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead tr {
+            background: var(--slate);
+        }
+
+        th {
+            text-align: left;
+            padding: 9px 14px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            border-bottom: 1.5px solid var(--slate2);
+        }
+
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--slate);
+            vertical-align: middle;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: #fafcff;
+        }
+
+        .empty {
+            color: #bbb;
+            font-size: 13px;
+            padding: 28px 0;
+            text-align: center;
+        }
+
+        /* ── CHIPS ── */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: var(--slate2);
+            color: var(--muted);
+        }
+
+        .chip-brand {
+            background: var(--brand-dim);
+            color: var(--brand-dark);
+        }
+
+        .chip-blue {
+            background: #e8f0fe;
+            color: #1d55c4;
+        }
+
+        .chip-gold {
+            background: #fef3d5;
+            color: #b07d04;
+        }
+
+        .chip-count {
+            background: var(--ink);
+            color: #fff;
+        }
+
+        .chip-green {
+            background: var(--green-dim);
+            color: #065f46;
+        }
+
+        .chip-red {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .chip-purple {
+            background: var(--purple-dim);
+            color: #6d28d9;
+        }
+
+        /* ── STAGE BLOCKS ── */
+        .stage-wrap {
+            margin-bottom: 10px;
+        }
+
+        .stage-card {
+            background: var(--slate);
+            border: 1.5px solid var(--slate2);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+
+        .stage-card:hover {
+            border-color: var(--slate3);
+        }
+
+        .stage-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: #f7f9fc;
+            border-bottom: 1px solid var(--slate2);
+        }
+
+        .stage-num {
+            width: 22px;
+            height: 22px;
+            background: var(--brand);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--ink);
+            flex-shrink: 0;
+        }
+
+        .stage-name-input {
+            height: 28px !important;
+            background: transparent !important;
+            border: 1.5px solid transparent !important;
+            font-weight: 600 !important;
+            color: var(--ink) !important;
+            padding: 0 8px !important;
+            min-width: 140px;
+            font-size: 13px !important;
+            border-radius: 6px !important;
+        }
+
+        .stage-name-input:focus {
+            background: white !important;
+            border-color: var(--brand) !important;
+        }
+
+        .stage-body {
+            padding: 12px 14px;
+        }
+
+        .stage-item-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            border-bottom: 1px dashed var(--slate2);
+            flex-wrap: wrap;
+        }
+
+        .stage-item-row:last-child {
+            border-bottom: none;
+        }
+
+        .stage-item-name {
+            flex: 1;
+            font-weight: 500;
+            font-size: 13px;
+            min-width: 100px;
+        }
+
+        .stage-add {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 14px;
+            background: #f2f5f9;
+            border-top: 1px solid var(--slate2);
+            flex-wrap: wrap;
+        }
+
+        /* ── METRICS ── */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 18px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--slate2);
+        }
+
+        .metric-card.accent::before {
+            background: var(--brand);
+        }
+
+        .metric-card.gold::before {
+            background: var(--gold);
+        }
+
+        .metric-card.green::before {
+            background: var(--green);
+        }
+
+        .metric-card.purple::before {
+            background: var(--purple);
+        }
+
+        .metric-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .metric-icon.brand {
+            background: var(--brand-dim);
+        }
+
+        .metric-icon.gold {
+            background: #fef3d5;
+        }
+
+        .metric-icon.slate {
+            background: var(--slate2);
+        }
+
+        .metric-icon.green {
+            background: var(--green-dim);
+        }
+
+        .metric-icon.purple {
+            background: var(--purple-dim);
+        }
+
+        .metric-icon svg {
+            width: 17px;
+            height: 17px;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+
+        .metric-icon.brand svg {
+            stroke: var(--brand);
+        }
+
+        .metric-icon.gold svg {
+            stroke: var(--gold);
+        }
+
+        .metric-icon.slate svg {
+            stroke: var(--muted);
+        }
+
+        .metric-icon.green svg {
+            stroke: var(--green);
+        }
+
+        .metric-icon.purple svg {
+            stroke: var(--purple);
+        }
+
+        .metric-val {
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--ink);
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .metric-lbl {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── RESULT TABLE ── */
+        .result-section td {
+            background: #f4f7fc;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .result-sub td {
+            color: var(--muted);
+            background: #fafbfc;
+        }
+
+        .result-sub td:first-child {
+            padding-left: 30px;
+        }
+
+        .result-total td {
+            font-weight: 700;
+            border-top: 2px solid var(--slate3) !important;
+            padding-top: 14px;
+        }
+
+        .result-margin td {
+            color: var(--muted);
+        }
+
+        .result-sale td {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--brand-dark);
+        }
+
+        /* ── STATS BAR ── */
+        .stats-bar {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, var(--ink) 0%, var(--ink2) 100%);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .stats-bar span {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .stats-bar strong {
+            font-size: 12px;
+            color: #fff;
+        }
+
+        .stats-bar-sep {
+            width: 1px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.15);
+            margin: 0 4px;
+        }
+
+        /* ── PROD CARD ── */
+        .prod-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            margin-bottom: 18px;
+            overflow: hidden;
+        }
+
+        .prod-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--slate);
+            background: linear-gradient(135deg, #fafbfd 0%, var(--slate) 100%);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .prod-card-name {
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--ink);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prod-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--brand);
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .prod-card-meta {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 3px;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .prod-card-body {
+            padding: 16px 22px;
+        }
+
+        /* ── STOCK TABLE ── */
+        .stock-low {
+            background: #fff7ed !important;
+        }
+
+        .stock-critical {
+            background: #fef2f2 !important;
+        }
+
+        .stock-bar-wrap {
+            width: 100px;
+            height: 8px;
+            background: var(--slate2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .stock-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .stock-bar.ok {
+            background: var(--green);
+        }
+
+        .stock-bar.low {
+            background: var(--gold);
+        }
+
+        .stock-bar.critical {
+            background: var(--danger);
+        }
+
+        /* ── LOGIN ── */
+        .login-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+            padding-top: 0;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            padding: 40px;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+            text-align: center;
+            border: 1px solid var(--slate3);
+        }
+
+        .login-card h2 {
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--ink);
+            margin-bottom: 8px;
+        }
+
+        .login-card p {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .login-field {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .login-field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .login-field input {
+            width: 100%;
+            height: 46px;
+            border-radius: 10px;
+            padding: 0 16px;
+            font-size: 15px;
+            border: 1.5px solid var(--slate3);
+            background: var(--slate);
+            transition: all 0.2s;
+        }
+
+        .login-field input:focus {
+            border-color: var(--brand);
+            background: white;
+            outline: none;
+            box-shadow: 0 0 0 4px var(--brand-dim);
+        }
+
+        /* Role selector */
+        .role-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .role-btn {
+            padding: 14px 10px;
+            border: 2px solid var(--slate3);
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            background: var(--slate);
+        }
+
+        .role-btn:hover {
+            border-color: var(--brand-dim);
+            background: #f0f5ff;
+        }
+
+        .role-btn.selected {
+            border-color: var(--brand);
+            background: var(--brand-dim);
+        }
+
+        .role-btn.selected.green-role {
+            border-color: var(--green);
+            background: var(--green-dim);
+        }
+
+        .role-btn.selected.purple-role {
+            border-color: var(--purple);
+            background: var(--purple-dim);
+        }
+
+        .role-btn .role-icon {
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+
+        .role-btn .role-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .role-btn .role-desc {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .anim {
+            animation: fadeUp 0.25s ease forwards;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--slate3);
+            border-radius: 10px;
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--slate2);
+            margin: 16px 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--muted);
+        }
+
+        .empty-state svg {
+            width: 40px;
+            height: 40px;
+            stroke: var(--slate3);
+            margin-bottom: 12px;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        @media (max-width:768px) {
+            .sidebar {
+                width: 100%;
+                min-height: auto;
+                position: relative;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 16px;
+            }
+
+            .metrics-row {
+                grid-template-columns: 1fr;
+            }
+
+            .layout {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layout">
+
+        <!-- ════ SIDEBAR ════ -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-mark">
+                    <div class="logo-icon" style="background: transparent;">
+                        <img src="Roalux_PNG.png" alt="Roalux MixLab Logo" style="width: 36px; height: 36px; object-fit: contain;">
+                    </div>
+                    <div>
+                        <div class="logo-text">ROALUX <span>MIX</span></div>
+                        <div class="logo-sub">Paint Formulation</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="role-badge-wrap" id="role-badge-wrap" style="display:none">
+                <div class="role-badge" id="sidebar-role-badge"></div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <!-- Always visible -->
+                <div class="nav-label">Calculator</div>
+                <button class="nav-item active" onclick="showTab('user-calc')" id="nav-user-calc">
+                    <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round">
+                            <rect x="3" y="3" width="12" height="12" rx="2" />
+                            <line x1="6" y1="7" x2="12" y2="7" />
+                            <line x1="6" y1="11" x2="12" y2="11" />
+                        </svg></span>
+                    Mix Calculator
+                </button>
+
+                <!-- Manager + Admin -->
+                <div class="manager-only" style="display:none">
+                    <div class="nav-label">Inventory</div>
+                    <button class="nav-item" onclick="showTab('stock')" id="nav-stock">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <path d="M3 6l6-4 6 4v8l-6 4-6-4V6z" />
+                                <path d="M9 2v14M3 6l6 4 6-4" />
+                            </svg></span>
+                        Stock Management
+                        <span class="nav-badge" id="nav-stock-low">0</span>
+                    </button>
+                </div>
+
+                <!-- Admin only -->
+                <div class="admin-only" style="display:none">
+                    <div class="nav-label">Admin Masters</div>
+                    <button class="nav-item" onclick="showTab('items')" id="nav-items">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <rect x="2" y="2" width="6" height="6" rx="1.5" />
+                                <rect x="10" y="2" width="6" height="6" rx="1.5" />
+                                <rect x="2" y="10" width="6" height="6" rx="1.5" />
+                                <rect x="10" y="10" width="6" height="6" rx="1.5" />
+                            </svg></span>
+                        Raw Materials
+                        <span class="nav-badge" id="nav-item-count">0</span>
+                    </button>
+                    <button class="nav-item" onclick="showTab('products')" id="nav-products">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <path d="M3 6l6-4 6 4v8l-6 4-6-4V6z" />
+                                <path d="M9 2v14M3 6l6 4 6-4" />
+                            </svg></span>
+                        Product Master
+                        <span class="nav-badge" id="nav-prod-count">0</span>
+                    </button>
+                    <div class="nav-label">Analysis</div>
+                    <button class="nav-item" onclick="showTab('estimate')" id="nav-estimate">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <path d="M3 14l4-4 3 3 5-7" />
+                                <circle cx="14" cy="5" r="1.5" />
+                            </svg></span>
+                        Price Estimator
+                    </button>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn btn-xs btn-ghost" id="login-toggle-btn" onclick="openLoginPortal()"
+                    style="width:100%; justify-content:center; margin-bottom:10px; font-weight:700;">
+                    SIGN IN
+                </button>
+                <p>© 2026 Roalux MixLab</p>
+                <p style="margin-top:3px">v3.0 — Multi-Role System</p>
+            </div>
+        </aside>
+
+        <!-- ════ MAIN ════ -->
+        <main class="main">
+
+            <!-- ══ LOGIN / ROLE SELECT ══ -->
+            <div id="tab-login" style="display:none" class="anim">
+                <div class="login-wrap">
+                    <div class="login-card">
+                        <div style="color:var(--brand); display:flex; justify-content:center; margin-bottom:16px;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                        </div>
+                        <h2>Roalux MixLab</h2>
+                        <p id="login-sub">Select your role to continue</p>
+
+                        <div class="role-selector" id="role-selector">
+                            <div class="role-btn green-role" onclick="selectRole('labour')" id="role-btn-labour">
+                                <div class="role-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></div>
+                                <div class="role-name">Labour</div>
+                                <div class="role-desc">Mix Calculator</div>
+                            </div>
+                            <div class="role-btn purple-role" onclick="selectRole('manager')" id="role-btn-manager">
+                                <div class="role-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
+                                <div class="role-name">Manager</div>
+                                <div class="role-desc">Stock + Calc</div>
+                            </div>
+                            <div class="role-btn" onclick="selectRole('admin')" id="role-btn-admin">
+                                <div class="role-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
+                                <div class="role-name">Admin</div>
+                                <div class="role-desc">Full Access</div>
+                            </div>
+                        </div>
+
+                        <div class="login-field" id="pw-field" style="display:none">
+                            <label id="pw-label">Password</label>
+                            <input type="text" id="admin-pw" placeholder="••••••••" style="-webkit-text-security:disc;"
+                                autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
+                        </div>
+
+                        <button class="btn btn-primary" id="login-btn" onclick="doLogin()"
+                            style="width:100%;height:46px;border-radius:10px;font-size:15px;margin-bottom:15px;display:flex;align-items:center;justify-content:center;">
+                            Continue
+                        </button>
+                        <div id="login-error"
+                            style="display:none;color:var(--danger);font-size:13px;font-weight:600;margin-top:-8px;margin-bottom:10px;text-align:center;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Incorrect password. Please try again.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ USER CALCULATOR ══ -->
+            <div id="tab-user-calc" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Mix Calculator</div>
+                        <div class="page-subtitle">Select a product and quantity to get the formulation</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16">
+                                    <path d="M3 3h10v10H3z" stroke="currentColor" stroke-width="1.5" />
+                                    <line x1="3" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5" />
+                                    <line x1="3" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="1.5" />
+                                </svg></div>
+                            Calculation Parameters
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Product Name</label>
+                            <select id="user-product" style="width:300px" onchange="updateUserCalc()">
+                                <option value="">— Select Product —</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Total Quantity (kg)</label>
+                            <input type="number" id="user-qty" value="100" min="0.01" step="0.01" style="width:150px"
+                                oninput="updateUserCalc()">
+                        </div>
+                        <div class="field">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary" onclick="updateUserCalc()">Calculate</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="user-calc-output"></div>
+            </div>
+
+            <!-- ══ STOCK MANAGEMENT (Manager + Admin) ══ -->
+            <div id="tab-stock" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Stock Management</div>
+                        <div class="page-subtitle">Update raw material stock levels and monitor inventory</div>
+                    </div>
+                </div>
+
+
+
+                <!-- Update Stock Form -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16">
+                                    <line x1="8" y1="3" x2="8" y2="13" />
+                                    <line x1="3" y1="8" x2="13" y2="8" />
+                                </svg></div>
+                            Add / Update Stock
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Raw Material</label>
+                            <select id="stock-item-sel" style="width:260px" onchange="onStockItemChange()">
+                                <option value="">— Select Material —</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Quantity to Add</label>
+                            <input type="number" id="stock-add-qty" placeholder="0.00" min="0" step="0.01"
+                                style="width:130px">
+                        </div>
+                        <div class="field">
+                            <label>Purchase Price / Unit (Rs.)</label>
+                            <input type="number" id="stock-add-price" placeholder="Avg with existing" min="0"
+                                step="0.01" style="width:160px">
+                        </div>
+                        <div class="field">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-green" onclick="addStock()">
+                                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"
+                                    stroke-width="2.2" stroke-linecap="round">
+                                    <line x1="6.5" y1="1" x2="6.5" y2="12" />
+                                    <line x1="1" y1="6.5" x2="12" y2="6.5" />
+                                </svg>
+                                Add Stock
+                            </button>
+                        </div>
+                    </div>
+                    <div id="stock-avg-preview"
+                        style="display:none; margin-top:10px; padding:12px 16px; background:var(--green-dim); border-radius:8px; border:1px solid rgba(16,185,129,0.2); font-size:13px; color:#065f46">
+                        <!-- filled dynamically -->
+                    </div>
+                </div>
+
+                <!-- Stock Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16">
+                                    <rect x="2" y="4" width="12" height="10" rx="1.5" />
+                                    <path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1" />
+                                </svg></div>
+                            Current Inventory
+                        </div>
+                        <div style="display:flex;gap:8px">
+                            <input type="text" id="stock-search" placeholder="Search materials..."
+                                style="width:200px;height:32px;font-size:12px" oninput="renderStock()">
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Material Name</th>
+                                    <th>Unit</th>
+                                    <th>Current Stock</th>
+                                    <th class="admin-col" style="display:none">Avg Price / Unit</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stock-tbody">
+                                <tr>
+                                    <td colspan="6" class="empty">No materials found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ ITEM MASTER (Admin only) ══ -->
+            <div id="tab-items" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Raw Materials</div>
+                        <div class="page-subtitle">Manage raw ingredients, units, and pricing</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16">
+                                    <line x1="8" y1="3" x2="8" y2="13" />
+                                    <line x1="3" y1="8" x2="13" y2="8" />
+                                </svg></div>
+                            Add New Raw Material
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Material Name</label>
+                            <input type="text" id="item-name" placeholder="e.g. Titanium Dioxide" style="width:210px">
+                        </div>
+                        <div class="field">
+                            <label>Unit</label>
+                            <select id="item-unit" style="width:90px">
+                                <option>kg</option>
+                                <option>g</option>
+                                <option>L</option>
+                                <option>mL</option>
+                                <option>nos</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Price / Unit (Rs.)</label>
+                            <input type="number" id="item-price" placeholder="0.00" min="0" step="0.01"
+                                style="width:140px">
+                        </div>
+                        <div class="field">
+                            <label>Min Threshold</label>
+                            <input type="number" id="item-threshold" placeholder="10" min="0" step="0.01"
+                                style="width:120px">
+                        </div>
+                        <div class="field">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary" onclick="addItem()">
+                                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"
+                                    stroke-width="2.2" stroke-linecap="round">
+                                    <line x1="6.5" y1="1" x2="6.5" y2="12" />
+                                    <line x1="1" y1="6.5" x2="12" y2="6.5" />
+                                </svg>
+                                Add Material
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16">
+                                    <rect x="2" y="4" width="12" height="10" rx="1.5" />
+                                </svg></div>
+                            Material Price List
+                        </div>
+                        <span class="chip chip-count" id="item-count">0 items</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>Unit</th>
+                                    <th>Price / Unit</th>
+                                    <th>Min Threshold</th>
+                                    <th>Current Stock</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="item-tbody">
+                                <tr>
+                                    <td colspan="7" class="empty">No raw materials added yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ PRODUCT MASTER (Admin only) ══ -->
+            <!-- ══ CREATE PRODUCT (Admin only) ══ -->
+            <div id="tab-create-product" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Create New Product</div>
+                        <div class="page-subtitle">Define product and set batch size</div>
+                    </div>
+                    <button class="btn btn-ghost" onclick="showTab('products')">← Back to Products</button>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16">
+                                    <line x1="8" y1="3" x2="8" y2="13" />
+                                    <line x1="3" y1="8" x2="13" y2="8" />
+                                </svg></div>
+                            Product Details
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field"><label>Product Name</label><input type="text" id="prod-name"
+                                placeholder="e.g. Exterior White" style="width:220px"></div>
+                        <div class="field"><label>Batch Size (kg)</label><input type="number" id="prod-batch"
+                                placeholder="100" min="0.01" step="0.01" style="width:140px" oninput="if(typeof renderDraftStages === 'function') renderDraftStages()"></div>
+                        <div class="field"><label>Description</label><input type="text" id="prod-desc"
+                                placeholder="Optional note" style="width:200px"></div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:16px;">
+                    <div class="card-header" style="padding-bottom:12px;margin-bottom:12px;">
+                        <div class="card-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            Formulation Stages
+                        </div>
+                        <button class="btn btn-sm btn-ghost" onclick="addStage('draft')">+ Add Stage</button>
+                    </div>
+                    <div id="draft-stages-wrap">
+                        <div style="font-size:13px;color:#bbb;padding:16px;text-align:center;border:2px dashed var(--slate2);border-radius:8px">No stages added yet. Click "+ Add Stage" to build the formulation before saving.</div>
+                    </div>
+                </div>
+
+                <div style="margin-top:24px;text-align:right;">
+                    <button class="btn btn-primary" onclick="addProduct()" style="font-size:15px;padding:10px 24px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                        Save Complete Product
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══ PRODUCT MASTER (Admin only) ══ -->
+            <div id="tab-products" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Product Master</div>
+                        <div class="page-subtitle">Define products, mixing stages, and raw material quantities</div>
+                    </div>
+                    <button class="btn btn-brand" onclick="showTab('create-product')">+ Create Product</button>
+                </div>
+                <div class="card" style="margin-bottom:24px;border-left:4px solid var(--brand);max-width:400px;padding:2px 10px">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.3-4.3" />
+                        </svg>
+                        <input type="text" id="prod-search" placeholder="Search Master Products..."
+                            style="flex:1;border:none;font-size:14px;background:none;font-weight:500;height:36px;outline:none;"
+                            oninput="renderProducts(this.value)">
+                    </div>
+                </div>
+                <div id="prod-list"></div>
+            </div>
+
+            <!-- ══ PRICE ESTIMATOR (Admin only) ══ -->
+            <div id="tab-estimate" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Price Estimator</div>
+                        <div class="page-subtitle">Calculate material cost and selling price for any quantity</div>
+                    </div>
+                    <button class="btn btn-primary" id="pdf-btn" onclick="exportPDF()" style="display:none">
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round">
+                            <path d="M2 9v2a1 1 0 001 1h7a1 1 0 001-1V9" />
+                            <path d="M6.5 1v7M4 6l2.5 2.5L9 6" />
+                        </svg>
+                        Export PDF
+                    </button>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16">
+                                    <circle cx="8" cy="8" r="5.5" />
+                                    <path d="M8 5v3l2 2" />
+                                </svg></div>
+                            Estimation Parameters
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field"><label>Product</label><select id="est-product" style="width:240px"
+                                onchange="updateEstimate()">
+                                <option value="">— Select a product —</option>
+                            </select></div>
+                        <div class="field"><label>Quantity (kg)</label><input type="number" id="est-qty" value="100"
+                                min="0.01" step="0.01" style="width:150px" oninput="updateEstimate()"></div>
+                        <div class="field"><label>Profit Margin (%)</label><input type="number" id="est-margin"
+                                value="20" min="0" step="0.1" style="width:120px" oninput="updateEstimate()"></div>
+                    </div>
+                    <!-- Litre conversion -->
+                    <div
+                        style="margin-top:14px; padding:14px 16px; background:var(--slate); border-radius:10px; border:1px solid var(--slate3)">
+                        <div
+                            style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"></path><path d="M14 9.3V1.99"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><line x1="5.52" y1="16" x2="18.48" y2="16"></line></svg> Litre Conversion (optional)
+                        </div>
+                        <div class="form-grid" style="margin-bottom:0">
+                            <div class="field">
+                                <label>Density (kg per litre)</label>
+                                <input type="number" id="est-kg-per-litre" placeholder="e.g. 1.4" min="0.01" step="0.01"
+                                    style="width:150px" oninput="updateEstimate()">
+                            </div>
+                            <div class="field" style="justify-content:flex-end;padding-bottom:2px">
+                                <span style="font-size:12px;color:var(--muted);font-style:italic">
+                                    Enter how many kg = 1 litre for this product<br>
+                                    (e.g. 1.4 means 1 litre weighs 1.4 kg)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="estimate-output"></div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // ══════════════════════════════════════════
+        // DATA & STATE
+        // ══════════════════════════════════════════
+        let items = [];       // raw materials with price info (admin sets base price)
+        let products = [];    // product formulas
+        let stocks = {};      // { itemId: { qty: number, threshold: number, avgPrice: number } }
+        // avgPrice = weighted average cost per unit, updated when manager adds stock with a price
+        let currentRole = null; // 'labour' | 'manager' | 'admin'
+        let selectedLoginRole = null;
+
+        const PASSWORDS = {
+            manager: 'manager123',
+            admin: 'admin123'
+        };
+
+        // ══════════════════════════════════════════
+        // INIT
+        // ══════════════════════════════════════════
+        async function init() {
+            try {
+                const [itemsRes, prodsRes, stocksRes] = await Promise.all([
+                    fetch('/api/items'),
+                    fetch('/api/products'),
+                    fetch('/api/stocks').catch(() => ({ json: () => ({}) }))
+                ]);
+                items = await itemsRes.json();
+                products = await prodsRes.json();
+                try { stocks = await stocksRes.json(); } catch (e) { stocks = {}; }
+                if (!stocks || typeof stocks !== 'object') stocks = {};
+
+                renderItems();
+                renderProducts();
+                renderStock();
+                updateNavCounts();
+                populateAllSelects();
+                updateUserCalc();
+            } catch (e) {
+                console.error("Init failed:", e);
+                items = []; products = []; stocks = {};
+            }
+        }
+        init();
+
+        // ══════════════════════════════════════════
+        // AUTH & ROLE SYSTEM
+        // ══════════════════════════════════════════
+        function openLoginPortal() {
+            if (currentRole) {
+                // Logout
+                currentRole = null;
+                selectedLoginRole = null;
+                applyRole(null);
+                showTab('user-calc');
+                document.getElementById('login-toggle-btn').textContent = 'SIGN IN';
+                document.getElementById('login-toggle-btn').className = 'btn btn-xs btn-ghost';
+                return;
+            }
+            showTab('login');
+            resetLoginForm();
+        }
+
+        function resetLoginForm() {
+            selectedLoginRole = null;
+            document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+            document.getElementById('pw-field').style.display = 'none';
+            document.getElementById('login-error').style.display = 'none';
+            document.getElementById('admin-pw').value = '';
+            document.getElementById('login-sub').textContent = 'Select your role to continue';
+        }
+
+        function selectRole(role) {
+            selectedLoginRole = role;
+            document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+            const btn = document.getElementById('role-btn-' + role);
+            btn.classList.add('selected');
+
+            document.getElementById('login-error').style.display = 'none';
+
+            if (role === 'labour') {
+                document.getElementById('pw-field').style.display = 'none';
+                document.getElementById('login-sub').textContent = 'Labour: Mix Calculator access';
+            } else if (role === 'manager') {
+                document.getElementById('pw-field').style.display = 'block';
+                document.getElementById('pw-label').textContent = 'Manager Password';
+                document.getElementById('login-sub').textContent = 'Manager: Stock management + Calculator';
+                document.getElementById('admin-pw').value = '';
+                document.getElementById('admin-pw').focus();
+            } else {
+                document.getElementById('pw-field').style.display = 'block';
+                document.getElementById('pw-label').textContent = 'Admin Password';
+                document.getElementById('login-sub').textContent = 'Admin: Full system access';
+                document.getElementById('admin-pw').value = '';
+                document.getElementById('admin-pw').focus();
+            }
+        }
+
+        function doLogin() {
+            if (!selectedLoginRole) {
+                document.getElementById('login-error').style.display = 'block';
+                document.getElementById('login-error').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Please select a role first.';
+                return;
+            }
+
+            const errEl = document.getElementById('login-error');
+            errEl.style.display = 'none';
+
+            if (selectedLoginRole === 'labour') {
+                currentRole = 'labour';
+                applyRole('labour');
+                showTab('user-calc');
+            } else {
+                const pw = document.getElementById('admin-pw').value;
+                if (pw === PASSWORDS[selectedLoginRole]) {
+                    currentRole = selectedLoginRole;
+                    applyRole(selectedLoginRole);
+                    showTab(selectedLoginRole === 'manager' ? 'stock' : 'items');
+                } else {
+                    errEl.style.display = 'block';
+                    errEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Incorrect password. Please try again.';
+                    document.getElementById('admin-pw').value = '';
+                    document.getElementById('admin-pw').focus();
+                }
+            }
+        }
+
+        function applyRole(role) {
+            const roleBadgeWrap = document.getElementById('role-badge-wrap');
+            const badge = document.getElementById('sidebar-role-badge');
+            const loginBtn = document.getElementById('login-toggle-btn');
+            const managerSections = document.querySelectorAll('.manager-only');
+            const adminSections = document.querySelectorAll('.admin-only');
+
+            if (!role) {
+                roleBadgeWrap.style.display = 'none';
+                managerSections.forEach(el => el.style.display = 'none');
+                adminSections.forEach(el => el.style.display = 'none');
+                loginBtn.textContent = 'SIGN IN';
+                loginBtn.className = 'btn btn-xs btn-ghost';
+                return;
+            }
+
+            roleBadgeWrap.style.display = 'block';
+            loginBtn.textContent = 'SIGN OUT';
+            loginBtn.className = 'btn btn-xs btn-danger';
+
+            if (role === 'labour') {
+                badge.textContent = ''; badge.innerHTML = '<div class="role-dot"></div> Labour';
+                badge.className = 'role-badge labour';
+                managerSections.forEach(el => el.style.display = 'none');
+                adminSections.forEach(el => el.style.display = 'none');
+            } else if (role === 'manager') {
+                badge.innerHTML = '<div class="role-dot"></div> Manager';
+                badge.className = 'role-badge manager';
+                managerSections.forEach(el => el.style.display = 'block');
+                adminSections.forEach(el => el.style.display = 'none');
+            } else if (role === 'admin') {
+                badge.innerHTML = '<div class="role-dot"></div> Admin';
+                badge.className = 'role-badge admin';
+                managerSections.forEach(el => el.style.display = 'block');
+                adminSections.forEach(el => el.style.display = 'block');
+            }
+        }
+
+        // ══════════════════════════════════════════
+        // TABS
+        // ══════════════════════════════════════════
+        function showTab(t) {
+            const tabs = ['user-calc', 'login', 'items', 'products', 'estimate', 'stock', 'create-product'];
+
+            // Access control
+            if (!currentRole && (t === 'stock' || t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
+                t = 'login'; resetLoginForm();
+            }
+            if (currentRole === 'labour' && (t === 'stock' || t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
+                t = 'user-calc';
+            }
+            if (currentRole === 'manager' && (t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
+                t = 'stock';
+            }
+
+            tabs.forEach(x => {
+                const el = document.getElementById('tab-' + x);
+                if (el) {
+                    el.style.display = x === t ? 'block' : 'none';
+                    if (x === t) { el.classList.remove('anim'); void el.offsetWidth; el.classList.add('anim'); }
+                }
+                const nav = document.getElementById('nav-' + x);
+                if (nav) nav.classList.toggle('active', x === t);
+            });
+
+            if (t === 'products') { document.getElementById('prod-search').value = ''; renderProducts(''); }
+            if (t === 'create-product') { if(typeof renderDraftStages === 'function') renderDraftStages(); }
+            if (t === 'estimate') { populateEstSelect(); updateEstimate(); }
+            if (t === 'user-calc') { populateAllSelects(); updateUserCalc(); }
+            if (t === 'stock') { populateStockSelect(); renderStock(); }
+            if (t === 'items') { renderItems(); }
+        }
+
+        // ══════════════════════════════════════════
+        // STOCK MANAGEMENT
+        // ══════════════════════════════════════════
+        function getStock(itemId) {
+            return stocks[itemId] || { qty: 0, threshold: 10, avgPrice: null };
+        }
+
+        // Returns the effective price for an item:
+        // if stock has avgPrice (set via weighted avg), use that; else fall back to item master price
+        function effectivePrice(itemId) {
+            const s = getStock(itemId);
+            const it = items.find(x => x.id === itemId);
+            if (s.avgPrice !== null && s.avgPrice !== undefined && s.avgPrice > 0) return s.avgPrice;
+            return it ? parseFloat(it.price) : 0;
+        }
+
+        function stockStatus(itemId) {
+            const s = getStock(itemId);
+            if (s.qty <= 0) return 'critical';
+            if (s.qty < s.threshold) return 'low';
+            return 'ok';
+        }
+
+        function populateStockSelect() {
+            const sel = document.getElementById('stock-item-sel');
+            sel.innerHTML = '<option value="">— Select Material —</option>' +
+                items.map(it => `<option value="${it.id}">${esc(it.name)} (${it.unit})</option>`).join('');
+        }
+
+        function onStockItemChange() {
+            const sel = document.getElementById('stock-item-sel');
+            const itemId = parseInt(sel.value);
+            const previewEl = document.getElementById('stock-avg-preview');
+            if (!sel.value || isNaN(itemId)) { previewEl.style.display = 'none'; return; }
+            const s = getStock(itemId);
+            const it = items.find(x => x.id === itemId);
+            const curAvg = s.avgPrice !== null && s.avgPrice > 0 ? s.avgPrice : (it ? it.price : 0);
+            previewEl.style.display = 'none';
+            // live preview as qty/price change
+            const qtyEl = document.getElementById('stock-add-qty');
+            const priceEl = document.getElementById('stock-add-price');
+            [qtyEl, priceEl].forEach(el => {
+                el.oninput = () => updateAvgPreview(itemId, s, curAvg, it);
+            });
+        }
+
+        function updateAvgPreview(itemId, s, curAvg, it) {
+            const addQty = parseFloat(document.getElementById('stock-add-qty').value);
+            const newPrice = parseFloat(document.getElementById('stock-add-price').value);
+            const previewEl = document.getElementById('stock-avg-preview');
+            if (!isNaN(addQty) && addQty > 0 && !isNaN(newPrice) && newPrice > 0) {
+                const totalQty = s.qty + addQty;
+                const weightedAvg = ((s.qty * curAvg) + (addQty * newPrice)) / totalQty;
+                previewEl.style.display = 'block';
+                previewEl.innerHTML = `<strong>📊 Weighted Avg Preview:</strong>
+            &nbsp;&nbsp;Opening: ${s.qty.toFixed(2)} ${it?.unit || ''} @ Rs.${parseFloat(curAvg).toFixed(2)}
+            &nbsp;+&nbsp; Adding: ${addQty.toFixed(2)} ${it?.unit || ''} @ Rs.${newPrice.toFixed(2)}
+            &nbsp;→&nbsp; <strong>New Avg Price: Rs.${weightedAvg.toFixed(4)} / ${it?.unit || 'unit'}</strong>
+            &nbsp;&nbsp;(Total: ${totalQty.toFixed(2)} ${it?.unit || ''})`;
+            } else {
+                previewEl.style.display = 'none';
+            }
+        }
+
+        async function addStock() {
+            const selEl = document.getElementById('stock-item-sel');
+            const qtyEl = document.getElementById('stock-add-qty');
+            const priceEl = document.getElementById('stock-add-price');
+            const itemId = parseInt(selEl.value);
+            const addQty = parseFloat(qtyEl.value);
+            const purchasePrice = parseFloat(priceEl.value);
+
+            if (!selEl.value) { alert('Please select a material'); return; }
+            if (isNaN(addQty) || addQty <= 0) { alert('Please enter a valid quantity to add'); return; }
+
+            const cur = getStock(itemId);
+            const it = items.find(x => x.id === itemId);
+
+            // Weighted average price calculation
+            const curAvg = (cur.avgPrice !== null && cur.avgPrice > 0) ? cur.avgPrice : (it ? parseFloat(it.price) : 0);
+            let newAvgPrice = cur.avgPrice; // keep existing if no price entered
+            if (!isNaN(purchasePrice) && purchasePrice > 0) {
+                const totalQty = cur.qty + addQty;
+                if (totalQty > 0 && cur.qty > 0) {
+                    // True weighted average: (old qty × old avg) + (new qty × new price) / total
+                    newAvgPrice = ((cur.qty * curAvg) + (addQty * purchasePrice)) / totalQty;
+                } else {
+                    // First stock entry or zero opening stock
+                    newAvgPrice = purchasePrice;
+                }
+            } else if (cur.avgPrice === null || cur.avgPrice === undefined) {
+                // No price entered, no existing avg → use item master price
+                newAvgPrice = it ? parseFloat(it.price) : 0;
+            }
+
+            const newQty = cur.qty + addQty;
+            const newThreshold = cur.threshold;
+
+            stocks[itemId] = { qty: newQty, threshold: newThreshold, avgPrice: newAvgPrice };
+
+            try {
+                await fetch('/api/stocks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId, qty: newQty, threshold: newThreshold, avgPrice: newAvgPrice })
+                });
+            } catch (e) { /* local update already done */ }
+
+            qtyEl.value = '';
+            priceEl.value = '';
+            document.getElementById('stock-avg-preview').style.display = 'none';
+            renderStock();
+            renderItems(); // refresh avg price display in admin items tab
+            updateNavCounts();
+            onStockItemChange(); // refresh hint
+        }
+
+        async function deductStock(itemId, qty) {
+            if (isNaN(qty) || qty <= 0) { alert('Enter a valid quantity to deduct'); return; }
+            if (!confirm(`Deduct ${qty} from stock? This cannot be undone.`)) return;
+            const cur = getStock(itemId);
+            const newQty = Math.max(0, cur.qty - qty);
+            stocks[itemId] = { ...cur, qty: newQty };
+            try {
+                await fetch('/api/stocks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId, qty: newQty, threshold: cur.threshold, avgPrice: cur.avgPrice })
+                });
+            } catch (e) { }
+            renderStock();
+            updateNavCounts();
+        }
+
+        async function setThreshold(itemId, threshold) {
+            const cur = getStock(itemId);
+            stocks[itemId] = { ...cur, threshold: parseFloat(threshold) || 10 };
+            try {
+                await fetch('/api/stocks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId, qty: cur.qty, threshold: parseFloat(threshold) || 10 })
+                });
+            } catch (e) { }
+            renderStock();
+            updateNavCounts();
+        }
+
+        function renderStock() {
+            const search = (document.getElementById('stock-search')?.value || '').toLowerCase();
+            const filtered = items.filter(it => it.name.toLowerCase().includes(search));
+            const isAdmin = currentRole === 'admin';
+
+            // Show/hide admin-only price column header
+            document.querySelectorAll('.admin-col').forEach(el => {
+                el.style.display = isAdmin ? '' : 'none';
+            });
+
+
+
+            const tb = document.getElementById('stock-tbody');
+            if (!filtered.length) {
+                tb.innerHTML = `<tr><td colspan="${isAdmin ? 6 : 5}" class="empty">No materials found.</td></tr>`;
+                return;
+            }
+
+            tb.innerHTML = filtered.map((it, i) => {
+                const s = getStock(it.id);
+                const status = stockStatus(it.id);
+                const rowClass = status === 'critical' ? 'stock-critical' : status === 'low' ? 'stock-low' : '';
+                const pct = s.threshold > 0 ? Math.min(100, (s.qty / (s.threshold * 3)) * 100) : (s.qty > 0 ? 100 : 0);
+                const barClass = status === 'ok' ? 'ok' : status === 'low' ? 'low' : 'critical';
+                const ep = effectivePrice(it.id);
+
+                const statusChip = status === 'ok'
+                    ? `<span class="chip chip-green">In Stock</span>`
+                    : status === 'low'
+                        ? `<span class="chip chip-gold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;vertical-align:text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Low Stock</span>`
+                        : `<span class="chip chip-red"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Critical</span>`;
+
+                const avgPriceCol = isAdmin ? `<td style="display:${isAdmin ? '' : 'none'}">
+            <div style="font-size:13px">
+                <strong>Rs. ${ep.toFixed(2)}</strong>
+                <span style="color:var(--muted);font-size:11px">/${it.unit}</span>
+            </div>
+            ${s.avgPrice !== null && s.avgPrice > 0 && Math.abs(s.avgPrice - it.price) > 0.001
+                        ? `<div style="font-size:10px;color:var(--purple);margin-top:2px">Avg (weighted)</div>`
+                        : `<div style="font-size:10px;color:var(--muted);margin-top:2px">Master price</div>`}
+        </td>` : '';
+
+                return `<tr class="${rowClass}">
+            <td style="color:#bbb;font-size:12px">${i + 1}</td>
+            <td><strong style="font-weight:600">${esc(it.name)}</strong></td>
+            <td><span class="chip chip-blue">${esc(it.unit)}</span></td>
+            <td>
+                <strong style="font-size:15px;color:${status === 'critical' ? 'var(--danger)' : status === 'low' ? '#b45309' : 'var(--ink)'}">${s.qty.toFixed(2)}</strong>
+                <span style="color:var(--muted);font-size:11px"> ${esc(it.unit)}</span>
+            </td>
+            ${avgPriceCol}
+            <td>
+                <div style="display:flex;gap:6px">
+                    <input type="number" id="deduct-qty-${it.id}" placeholder="Qty" min="0.01" step="0.01" style="width:70px;height:26px;font-size:11px;border-radius:6px">
+                    <button class="btn btn-xs btn-danger" onclick="deductStock(${it.id},parseFloat(document.getElementById('deduct-qty-${it.id}').value)||0)">Use</button>
+                </div>
+            </td>
+        </tr>`;
+            }).join('');
+        }
+
+        // ══════════════════════════════════════════
+        // ITEM MASTER (Admin only — prices)
+        // ══════════════════════════════════════════
+        async function addItem() {
+            const name = document.getElementById('item-name').value.trim();
+            const price = parseFloat(document.getElementById('item-price').value);
+            const unit = document.getElementById('item-unit').value;
+            const threshold = parseFloat(document.getElementById('item-threshold').value) || 10;
+            if (!name || isNaN(price) || price < 0) return;
+
+            try {
+                const res = await fetch('/api/items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, unit, price })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    stocks[data.id] = { qty: 0, threshold };
+                    await init();
+                    document.getElementById('item-name').value = '';
+                    document.getElementById('item-price').value = '';
+                    document.getElementById('item-threshold').value = '';
+                }
+            } catch (e) { }
+        }
+
+        async function deleteItem(id) {
+            if (!confirm('Remove this material? It will also be removed from all product stages.')) return;
+            try {
+                const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+                if (res.ok) await init();
+            } catch (e) { }
+        }
+
+        async function updateItemPrice(id, newPrice) {
+            const p = parseFloat(newPrice);
+            if (isNaN(p) || p < 0) return;
+            const it = items.find(x => x.id === id);
+            if (!it) return;
+            try {
+                await fetch(`/api/items/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...it, price: p })
+                });
+                it.price = p;
+            } catch (e) { }
+        }
+
+        function renderItems() {
+            const count = items.length;
+            const el = document.getElementById('item-count');
+            if (el) el.textContent = count + ' item' + (count !== 1 ? 's' : '');
+            const tb = document.getElementById('item-tbody');
+            if (!tb) return;
+            if (!count) {
+                tb.innerHTML = `<tr><td colspan="7" class="empty">No raw materials added yet.</td></tr>`;
+                return;
+            }
+            tb.innerHTML = items.map((it, i) => {
+                const s = getStock(it.id);
+                const status = stockStatus(it.id);
+                const stockDisplay = status === 'critical'
+                    ? `<span style="color:var(--danger);font-weight:700">${s.qty.toFixed(2)} ${it.unit}</span>`
+                    : status === 'low'
+                        ? `<span style="color:#b45309;font-weight:700">${s.qty.toFixed(2)} ${it.unit}</span>`
+                        : `<span style="color:var(--green);font-weight:700">${s.qty.toFixed(2)} ${it.unit}</span>`;
+
+                return `<tr>
+            <td style="color:#bbb;font-size:12px">${i + 1}</td>
+            <td><strong style="font-weight:600">${esc(it.name)}</strong></td>
+            <td><span class="chip chip-blue">${esc(it.unit)}</span></td>
+            <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <span style="color:var(--muted);font-size:12px">Rs.</span>
+                    <input type="number" value="${parseFloat(it.price).toFixed(2)}" min="0" step="0.01"
+                        style="width:90px;height:28px;font-size:12px;border-radius:6px;font-weight:700"
+                        onchange="updateItemPrice(${it.id},this.value)" title="Edit price">
+                    <span style="font-size:11px;color:var(--muted)">/${it.unit}</span>
+                </div>
+            </td>
+            <td style="color:var(--muted);font-size:12px">${getStock(it.id).threshold} ${it.unit}</td>
+            <td>${stockDisplay}</td>
+            <td><button class="btn btn-sm btn-danger" onclick="deleteItem(${it.id})">Remove</button></td>
+        </tr>`;
+            }).join('');
+        }
+
+        // ══════════════════════════════════════════
+        // PRODUCT MASTER (Admin)
+        // ══════════════════════════════════════════
+        async function addProduct() {
+            const name = document.getElementById('prod-name').value.trim();
+            const batch = parseFloat(document.getElementById('prod-batch').value);
+            const desc = document.getElementById('prod-desc').value.trim();
+            if (!name || isNaN(batch) || batch <= 0) {
+                alert("Please provide a valid product name and batch size.");
+                return;
+            }
+            if (typeof draftStages !== 'undefined' && draftStages.length === 0) {
+                alert("Please add at least one stage and material before saving.");
+                return;
+            }
+            if (typeof draftStages !== 'undefined') {
+                let currentSum = 0;
+                draftStages.forEach(s => s.items.forEach(si => currentSum += (parseFloat(si.qty) || 0)));
+                if (Math.abs(currentSum - batch) > 0.001) {
+                    const diff = batch - currentSum;
+                    alert(`Cannot create product. The formulation is not balanced!\n\nThe total material sum is ${currentSum.toFixed(3)} kg, but the Target Batch is ${batch} kg.\n\nPlease ${diff > 0 ? 'add ' + diff.toFixed(3) + ' kg' : 'remove ' + Math.abs(diff).toFixed(3) + ' kg'} from the stages before saving.`);
+                    return;
+                }
+            }
+            try {
+                const res = await fetch('/api/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, batch, desc, stages: draftStages })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const newId = data.id;
+                    if(typeof draftStages !== 'undefined') { draftStages = []; renderDraftStages(); }
+                    await init();
+                    document.getElementById('prod-name').value = '';
+                    document.getElementById('prod-batch').value = '';
+                    document.getElementById('prod-desc').value = '';
+                    document.getElementById('prod-search').value = name;
+                    renderProducts(name);
+                    showTab('products');
+                    setTimeout(() => {
+                        const card = document.getElementById('prod-card-' + newId);
+                        if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.style.boxShadow = '0 0 0 3px var(--brand)'; setTimeout(() => card.style.boxShadow = '', 2500); }
+                    }, 100);
+                }
+            } catch (e) { }
+        }
+
+        async function deleteProduct(pid) {
+            if (!confirm('Delete this product and all its stages?')) return;
+            try {
+                const res = await fetch(`/api/products/${pid}`, { method: 'DELETE' });
+                if (res.ok) await init();
+            } catch (e) { }
+        }
+
+        async function syncProduct(p) {
+            try {
+                const res = await fetch(`/api/products/${p.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(p)
+                });
+                if (res.ok) {
+                    const idx = products.findIndex(x => x.id === p.id);
+                    if (idx !== -1) products[idx] = p;
+                    renderProducts(document.getElementById('prod-search')?.value || '');
+                }
+            } catch (e) { }
+        }
+
+        let draftStages = [];
+
+        function renderDraftStages() {
+            const el = document.getElementById('draft-stages-wrap');
+            if (el) {
+                const p = { id: 'draft', stages: draftStages };
+                let currentSum = 0;
+                draftStages.forEach(s => s.items.forEach(si => currentSum += (parseFloat(si.qty) || 0)));
+                const batch = parseFloat(document.getElementById('prod-batch').value) || 0;
+                let statusHTML = '';
+                if (batch > 0 && draftStages.some(s => s.items.length > 0)) {
+                    const diff = batch - currentSum;
+                    const isBalanced = Math.abs(diff) < 0.001;
+                    statusHTML = isBalanced 
+                        ? `<div style="margin-bottom:12px"><span class="chip chip-green">Balanced (${currentSum.toFixed(3)} / ${batch} kg)</span></div>` 
+                        : `<div style="margin-bottom:12px"><span class="chip chip-red">Unbalanced (Sum: ${currentSum.toFixed(3)} kg | ${diff > 0 ? 'Needs ' + diff.toFixed(3) : 'Over by ' + Math.abs(diff).toFixed(3)} kg)</span></div>`;
+                }
+
+                const stagesHTML = draftStages.length 
+                    ? draftStages.map((s, i) => renderStage(p, s, i)).join('')
+                    : '<div style="font-size:13px;color:#bbb;padding:16px;text-align:center;border:2px dashed var(--slate2);border-radius:8px">No stages added yet. Click "+ Add Stage" to build the formulation before saving.</div>';
+                el.innerHTML = statusHTML + stagesHTML;
+            }
+        }
+
+        function getTargetProduct(pid) {
+            return pid === 'draft' ? { id: 'draft', stages: draftStages } : products.find(x => x.id === pid);
+        }
+
+        function syncOrRender(pid, p) {
+            if (pid === 'draft') renderDraftStages();
+            else syncProduct(p);
+        }
+
+        function addStage(pid) {
+            const p = getTargetProduct(pid); if (!p) return;
+            p.stages.push({ id: Date.now(), name: 'Stage ' + (p.stages.length + 1), items: [] });
+            syncOrRender(pid, p);
+        }
+        function renameStage(pid, sid, newName) {
+            const p = getTargetProduct(pid); if (!p) return;
+            const s = p.stages.find(x => x.id === sid);
+            if (s && newName.trim()) { s.name = newName.trim(); syncOrRender(pid, p); }
+        }
+        function deleteStage(pid, sid) {
+            if (!confirm('Remove this stage?')) return;
+            if (pid === 'draft') {
+                draftStages = draftStages.filter(s => s.id !== sid);
+                renderDraftStages();
+                return;
+            }
+            const p = products.find(x => x.id === pid); if (!p) return;
+            p.stages = p.stages.filter(s => s.id !== sid);
+            syncProduct(p);
+        }
+        function addStageItem(pid, sid) {
+            const selEl = document.getElementById('si-sel-' + pid + '-' + sid);
+            const qtyEl = document.getElementById('si-qty-' + pid + '-' + sid);
+            const itemId = parseInt(selEl.value);
+            const qty = parseFloat(qtyEl.value);
+            if (!selEl.value || isNaN(qty) || qty <= 0) return;
+            const p = getTargetProduct(pid); if (!p) return;
+            const s = p.stages.find(x => x.id === sid);
+            const existing = s.items.find(x => x.itemId === itemId);
+            if (existing) { existing.qty += qty; } else { s.items.push({ itemId, qty }); }
+            syncOrRender(pid, p);
+        }
+        function updateStageItemQty(pid, sid, itemId, val) {
+            const v = parseFloat(val); if (isNaN(v) || v <= 0) return;
+            const p = getTargetProduct(pid); if (!p) return;
+            const s = p.stages.find(x => x.id === sid);
+            const si = s.items.find(x => x.itemId === itemId);
+            if (si) { si.qty = v; syncOrRender(pid, p); }
+        }
+        function removeStageItem(pid, sid, itemId) {
+            const p = getTargetProduct(pid); if (!p) return;
+            const s = p.stages.find(x => x.id === sid);
+            s.items = s.items.filter(x => x.itemId !== itemId);
+            syncOrRender(pid, p);
+        }
+
+        function toggleProductDetails(pid) {
+            const body = document.getElementById('prod-body-' + pid);
+            const icon = document.getElementById('prod-icon-' + pid);
+            if (body && body.style.display === 'none') {
+                body.style.display = 'block';
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            } else if (body) {
+                body.style.display = 'none';
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function renderProducts(query = null) {
+            const el = document.getElementById('prod-list');
+            if (!el) return;
+            const searchVal = (query !== null ? query : document.getElementById('prod-search')?.value || '').trim().toLowerCase();
+            if (!searchVal) {
+                el.innerHTML = `<div class="card" style="border:2px dashed var(--slate3);background:var(--slate);opacity:0.8"><div class="empty-state"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="20" cy="20" r="10"/><path d="m28 28-5-5"/></svg><p style="font-weight:600">Search for a product to manage</p></div></div>`;
+                return;
+            }
+            const filtered = products.filter(p => p.name.toLowerCase().includes(searchVal));
+            if (!filtered.length) {
+                el.innerHTML = `<div class="card"><div class="empty-state"><p>No products match "${esc(searchVal)}"</p></div></div>`;
+                return;
+            }
+            el.innerHTML = filtered.map(p => {
+                const totalIng = p.stages.reduce((a, s) => a + s.items.length, 0);
+                const formulationSum = p.stages.reduce((acc, s) => acc + s.items.reduce((accI, si) => accI + (parseFloat(si.qty) || 0), 0), 0);
+                const isBalanced = Math.abs(formulationSum - p.batch) < 0.001;
+                const diff = p.batch - formulationSum;
+                const statusHTML = isBalanced
+                    ? `<span class="chip chip-green">Balanced</span>`
+                    : `<span class="chip chip-red">Unbalanced (${diff > 0 ? 'Needs ' + diff.toFixed(3) + 'kg' : 'Over by ' + Math.abs(diff).toFixed(3) + 'kg'})</span>`;
+                const stagesHTML = p.stages.length ? p.stages.map((s, si) => renderStage(p, s, si)).join('') : `<div style="font-size:13px;color:#bbb;padding:6px 0 10px;text-align:center">No stages yet.</div>`;
+                return `<div class="prod-card" id="prod-card-${p.id}" style="border:1px solid var(--slate2); box-shadow:0 4px 12px rgba(0,0,0,0.03); border-radius:12px;">
+            <div class="prod-card-header" style="background:#fff; border-bottom:1px solid var(--slate2); padding:20px 24px; cursor:pointer; display:flex;" onclick="toggleProductDetails(${p.id})">
+                <div style="flex:1">
+                    <div class="prod-card-name" style="display:flex;align-items:center;gap:12px; font-size:18px;">
+                        <svg id="prod-icon-${p.id}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;color:var(--muted);flex-shrink:0"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        <div style="display:flex;align-items:center;gap:8px"><div class="prod-dot" style="width:12px; height:12px;"></div>${esc(p.name)}</div>
+                        ${statusHTML}
+                    </div>
+                    ${p.desc ? `<div style="font-size:13px; color:var(--muted); margin-top:4px; margin-left:28px;">${esc(p.desc)}</div>` : ''}
+                    <div class="prod-card-meta" style="margin-top:12px; margin-left:28px; display:flex; gap:16px; background:var(--slate); padding:8px 12px; border-radius:8px; display:inline-flex;">
+                        <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:10px; text-transform:uppercase;">Target Batch</span><strong style="color:var(--ink); font-size:13px;">${p.batch} kg</strong></div>
+                        <div style="width:1px; background:var(--slate3);"></div>
+                        <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:10px; text-transform:uppercase;">Current Sum</span><strong style="color:${isBalanced ? 'var(--green)' : 'var(--danger)'}; font-size:13px;">${formulationSum.toFixed(3)} kg</strong></div>
+                        <div style="width:1px; background:var(--slate3);"></div>
+                        <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:10px; text-transform:uppercase;">Stages</span><strong style="color:var(--ink); font-size:13px;">${p.stages.length}</strong></div>
+                        <div style="width:1px; background:var(--slate3);"></div>
+                        <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:10px; text-transform:uppercase;">Ingredients</span><strong style="color:var(--ink); font-size:13px;">${totalIng}</strong></div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:flex-start;">
+                    <button class="btn btn-sm btn-ghost" style="background:var(--slate); border:1px solid var(--slate2);" onclick="event.stopPropagation(); toggleProductDetails(${p.id}); setTimeout(() => addStage(${p.id}), 10);">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Add Stage
+                    </button>
+                    <button class="btn btn-sm btn-ghost" style="color:var(--danger); background:var(--danger-bg);" onclick="event.stopPropagation(); deleteProduct(${p.id})">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Delete
+                    </button>
+                </div>
+            </div>
+            <div id="prod-body-${p.id}" class="prod-card-body" style="display:none; background:#fafbfc; padding:20px 24px; border-top:1px solid var(--slate2);"><div class="stage-wrap">${stagesHTML}</div></div>
+        </div>`;
+            }).join('');
+        }
+
+        function renderStage(p, s, stageIndex) {
+            const pidStr = typeof p.id === 'string' ? `'${p.id}'` : p.id;
+            const itemRowsHTML = s.items.map(si => {
+                const it = items.find(x => x.id === si.itemId); if (!it) return '';
+                return `<div class="stage-item-row">
+            <div class="stage-item-name">${esc(it.name)}</div>
+            <span class="chip chip-blue" style="font-size:11px">${it.unit}</span>
+            <input type="number" value="${si.qty}" min="0.001" step="0.001" style="width:90px;height:30px;font-size:12px;border-radius:8px" onchange="updateStageItemQty(${pidStr},${s.id},${it.id},this.value)">
+            <span style="font-size:12px;color:var(--muted)">@ Rs.${it.price.toFixed(2)}/${it.unit}</span>
+            <button class="btn btn-xs btn-danger" onclick="removeStageItem(${pidStr},${s.id},${it.id})" style="margin-left:auto">✕</button>
+        </div>`;
+            }).join('');
+            const opts = items.map(it => `<option value="${it.id}">${esc(it.name)} (${it.unit})</option>`).join('');
+            return `<div class="stage-card" style="margin-bottom:8px">
+        <div class="stage-head">
+            <div style="display:flex;align-items:center;gap:8px">
+                <div class="stage-num">${stageIndex + 1}</div>
+                <input class="stage-name-input" type="text" value="${esc(s.name)}" onblur="renameStage(${pidStr},${s.id},this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+                <span style="font-size:11px;color:var(--muted)">${s.items.length} material${s.items.length !== 1 ? 's' : ''}</span>
+            </div>
+            <button class="btn btn-xs btn-danger" onclick="deleteStage(${pidStr},${s.id})">Remove Stage</button>
+        </div>
+        <div class="stage-body">${s.items.length ? itemRowsHTML : '<div style="font-size:12px;color:#ccc;text-align:center;padding:4px 0 8px">No ingredients — add below</div>'}</div>
+        <div class="stage-add">
+            <select id="si-sel-${p.id}-${s.id}" style="flex:1;min-width:150px;height:30px;font-size:12px"><option value="">— Select Raw Material —</option>${opts}</select>
+            <input type="number" id="si-qty-${p.id}-${s.id}" placeholder="Qty" min="0.001" step="0.001" style="width:90px;height:30px;font-size:12px">
+            <button class="btn btn-sm btn-ghost" onclick="addStageItem(${pidStr},${s.id})">+ Add</button>
+        </div>
+    </div>`;
+        }
+
+        // ══════════════════════════════════════════
+        // USER CALCULATOR
+        // ══════════════════════════════════════════
+        function updateUserCalc() {
+            const el = document.getElementById('user-calc-output');
+            const pid = parseInt(document.getElementById('user-product').value);
+            const qty = parseFloat(document.getElementById('user-qty').value) || 0;
+            if (!pid || !qty) {
+                el.innerHTML = `<div class="card"><div class="empty-state"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 5L5 13v14l15 8 15-8V13L20 5z"/><path d="M20 5v22M5 13l15 8 15-8"/></svg><p>Select a product and enter target quantity to get the mixing formula.</p></div></div>`;
+                return;
+            }
+            const p = products.find(x => x.id === pid); if (!p) return;
+            const scale = qty / p.batch;
+            let actualRawSum = 0;
+            const canSeeStock = true; // Stock visibility enabled for all roles
+            const canSeePrice = currentRole === 'admin';
+
+            // Gather all ingredients with stock info
+            const allIngredients = [];
+            p.stages.forEach(s => {
+                s.items.forEach(si => {
+                    const it = items.find(x => x.id === si.itemId); if (!it) return;
+                    const needed = si.qty * scale;
+                    const available = getStock(si.itemId).qty;
+                    const ep = effectivePrice(si.itemId);
+                    allIngredients.push({
+                        name: it.name, unit: it.unit, needed, available,
+                        sufficient: available >= needed,
+                        shortage: Math.max(0, needed - available),
+                        price: ep, cost: needed * ep,
+                        stageName: s.name
+                    });
+                });
+            });
+
+            const stockWarnings = allIngredients.filter(x => !x.sufficient);
+            const stageSummaries = p.stages.map(s => {
+                const stageItems = s.items.map(si => {
+                    const it = items.find(x => x.id === si.itemId); if (!it) return null;
+                    const scaledQty = si.qty * scale;
+                    actualRawSum += scaledQty;
+                    return { name: it.name, unit: it.unit, scaledQty, itemId: si.itemId };
+                }).filter(Boolean);
+                return { name: s.name, items: stageItems };
+            });
+
+            // Stock panel for manager/admin
+            const stockPanelHTML = canSeeStock ? (() => {
+                if (!allIngredients.length) return '';
+                const totalCost = canSeePrice ? allIngredients.reduce((a, x) => a + x.cost, 0) : null;
+                const rows = allIngredients.map(ing => {
+                    const pct = ing.available > 0 ? Math.min(100, (ing.available / Math.max(ing.needed, 0.001)) * 100) : 0;
+                    const barColor = ing.sufficient ? 'var(--green)' : (ing.available > 0 ? 'var(--gold)' : 'var(--danger)');
+                    const statusIcon = ing.sufficient 
+                        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>` 
+                        : (ing.available > 0 
+                            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>` 
+                            : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`);
+                    const priceCol = canSeePrice
+                        ? `<td style="font-size:12px;color:var(--muted)">Rs. ${ing.price.toFixed(2)}/${ing.unit}</td>
+                   <td style="font-weight:700;font-size:13px">Rs. ${ing.cost.toFixed(2)}</td>`
+                        : '';
+                    return `<tr style="background:${!ing.sufficient ? '#fff7f7' : ''}">
+                <td><strong style="font-weight:500">${esc(ing.name)}</strong><span style="font-size:10px;color:var(--muted);display:block">${esc(ing.stageName)}</span></td>
+                <td style="font-weight:700;color:var(--brand-dark)">${ing.needed.toFixed(3)} ${ing.unit}</td>
+                <td style="color:${ing.sufficient ? 'var(--green)' : ing.available > 0 ? '#b45309' : 'var(--danger)'};font-weight:700">${ing.available.toFixed(2)} ${ing.unit}</td>
+                <td>
+                    <div class="stock-bar-wrap" style="width:80px"><div class="stock-bar" style="width:${pct}%;background:${barColor}"></div></div>
+                    <span style="font-size:10px;color:var(--muted)">${pct.toFixed(0)}%</span>
+                </td>
+                <td>${statusIcon} ${ing.sufficient ? '<span class="chip chip-green" style="font-size:10px">OK</span>' : `<span class="chip chip-red" style="font-size:10px">Short ${ing.shortage.toFixed(3)} ${ing.unit}</span>`}</td>
+                ${priceCol}
+            </tr>`;
+                }).join('');
+
+                const priceHeaders = canSeePrice
+                    ? `<th>Unit Price</th><th>Material Cost</th>` : '';
+                const priceTotals = canSeePrice && totalCost !== null
+                    ? `<tr style="background:var(--slate);font-weight:700"><td colspan="5">Total Material Cost</td><td></td><td>Rs. ${totalCost.toFixed(2)}</td></tr>` : '';
+
+                const shortageAlert = stockWarnings.length
+                    ? `<div style="padding:12px 16px;background:#fff7ed;border-bottom:1px solid #fed7aa;display:flex;align-items:center;gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <strong style="color:#c2410c">${stockWarnings.length} material${stockWarnings.length > 1 ? 's' : ''} short of requirement</strong>
+                <span style="color:#c2410c;font-size:12px;margin-left:8px">Check stock or reduce batch quantity</span>
+               </div>` : '';
+
+                return `<div class="card anim" style="margin-bottom:18px;overflow:hidden;padding:0">
+            <div class="card-header" style="padding:14px 20px;margin-bottom:0;border-bottom:1px solid var(--slate2)">
+                <div class="card-title">
+                    <div class="card-icon"><svg viewBox="0 0 16 16"><path d="M3 6l6-4 6 4v8l-6 4-6-4V6z"/></svg></div>
+                    Stock vs Required — ${qty} kg batch
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="chip chip-green" style="font-size:11px">${allIngredients.filter(x => x.sufficient).length} sufficient</span>
+                    ${stockWarnings.length ? `<span class="chip chip-red" style="font-size:11px">${stockWarnings.length} short</span>` : ''}
+                </div>
+            </div>
+            ${shortageAlert}
+            <div class="table-wrap">
+                <table>
+                    <thead><tr>
+                        <th>Material</th>
+                        <th>Needed</th>
+                        <th>Available</th>
+                        <th>Coverage</th>
+                        <th>Status</th>
+                        ${priceHeaders}
+                    </tr></thead>
+                    <tbody>${rows}${priceTotals}</tbody>
+                </table>
+            </div>
+        </div>`;
+            })() : '';
+
+            const stageHTML = stageSummaries.map((ss, i) => {
+                const itemsRows = ss.items.map(it => {
+                    const st = stockStatus(it.itemId);
+                    const rowBg = st === 'critical' ? '#fff7f7' : '';
+                    const availableQty = getStock(it.itemId).qty;
+                    const isSufficient = availableQty >= it.scaledQty;
+                    const stockIcon = isSufficient 
+                        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom"><polyline points="20 6 9 17 4 12"></polyline></svg>` 
+                        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+                    return `<tr class="result-sub" style="border-bottom:1px solid var(--slate2);background:${rowBg}">
+                <td style="padding:14px 20px;font-size:15px;color:var(--ink2);font-weight:500">${esc(it.name)}</td>
+                <td style="text-align:right;padding:14px 20px;font-size:16px;font-weight:800;color:var(--brand-dark)">${it.scaledQty.toFixed(3)}</td>
+                <td style="text-align:right;padding:14px 20px;font-size:14px;font-weight:600;color:${isSufficient ? 'var(--green)' : 'var(--danger)'}">
+                    ${stockIcon} ${availableQty.toFixed(2)}
+                </td>
+                <td style="width:80px;padding:14px 20px;color:var(--muted);font-size:13px;font-weight:600">${esc(it.unit)}</td>
+            </tr>`;
+                }).join('');
+                const stageNameEsc = esc(ss.name);
+                const stagePrefix = stageNameEsc.toLowerCase().startsWith('stage') ? '' : `<span style="opacity:0.6;margin-right:8px">STAGE ${i + 1}</span>`;
+                return `<tr class="result-section"><td colspan="4" style="background:var(--ink);color:#fff;padding:10px 18px;font-weight:700;font-size:14px">${stagePrefix}${stageNameEsc}</td></tr>${itemsRows}`;
+            }).join('');
+
+            el.innerHTML = `
+        ${stockPanelHTML}
+        <div class="stats-bar anim" style="background:var(--brand);margin-bottom:24px;padding:14px 20px;border-radius:12px;display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:12px">
+                <strong style="font-size:16px">${esc(p.name)}</strong>
+                <div class="stats-bar-sep" style="background:rgba(255,255,255,0.2);height:20px"></div>
+                <span style="opacity:0.8">Target Yield:</span> <strong style="font-size:16px">${qty} kg</strong>
+            </div>
+            <button class="btn btn-brand" onclick="exportUserPDF()" style="background:#fff;color:var(--brand);border:none;height:34px">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M4 11v2a1 1 0 001 1h6a1 1 0 001-1v-2M8 2v7M5 6l3 3 3-3"/></svg>
+                Export Operator Sheet
+            </button>
+        </div>
+        <div class="card anim" style="padding:0;border-radius:12px;overflow:hidden">
+            <div class="table-wrap">
+                <table style="border-collapse:separate;border-spacing:0">
+                    <thead><tr style="background:var(--slate);border-bottom:2px solid var(--slate3)">
+                        <th style="padding:14px 20px">Raw Material Name</th>
+                        <th style="text-align:right;padding:14px 20px">Required Qty</th>
+                        <th style="text-align:right;padding:14px 20px">Available Stock</th>
+                        <th style="padding:14px 20px">Unit</th>
+                    </tr></thead>
+                    <tbody>
+                        ${stageHTML || '<tr><td colspan="4" class="empty">No mixing stages found.</td></tr>'}
+                        <tr style="background:var(--slate);font-weight:800;font-size:15px">
+                            <td style="padding:18px 20px">TOTAL MATERIAL INPUT</td>
+                            <td style="text-align:right;padding:18px 20px">${actualRawSum.toFixed(3)}</td>
+                            <td></td>
+                            <td style="padding:18px 20px;color:var(--muted)">kg</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+        }
+
+        function exportUserPDF() {
+            const pid = parseInt(document.getElementById('user-product').value);
+            const qty = parseFloat(document.getElementById('user-qty').value) || 0;
+            if (!pid || !qty) return;
+            const p = products.find(x => x.id === pid); if (!p) return;
+            const scale = qty / p.batch;
+            let actualRawSum = 0;
+            const date = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const time = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            const stageBlocks = p.stages.map((s, i) => {
+                const itemsRows = s.items.map(si => {
+                    const it = items.find(x => x.id === si.itemId); if (!it) return '';
+                    const scaledQty = si.qty * scale; actualRawSum += scaledQty;
+                    return `<tr><td style="padding:10px 15px;border-bottom:1px solid #eee">${esc(it.name)}</td><td style="padding:10px 15px;border-bottom:1px solid #eee;text-align:right;font-weight:700">${scaledQty.toFixed(3)}</td><td style="padding:10px 15px;border-bottom:1px solid #eee;color:#666">${esc(it.unit)}</td></tr>`;
+                }).join('');
+                const stageNameEsc = esc(s.name).toUpperCase();
+                const stageTitle = stageNameEsc.startsWith('STAGE') ? stageNameEsc : `STAGE ${i + 1}: ${stageNameEsc}`;
+                return `<div style="margin-bottom:25px;border:1.5px solid #0f172a;border-radius:8px;overflow:hidden"><div style="background:#0f172a;color:#fff;padding:10px 15px;font-weight:700">${stageTitle}</div><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc;font-size:11px;color:#64748b;text-transform:uppercase"><th style="text-align:left;padding:8px 15px">Raw Material</th><th style="text-align:right;padding:8px 15px">Quantity</th><th style="text-align:left;padding:8px 15px">Unit</th></tr></thead><tbody>${itemsRows}</tbody></table></div>`;
+            }).join('');
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Operator Sheet — ${esc(p.name)}</title><style>body{font-family:'Inter',sans-serif;padding:40px;color:#0f172a}</style></head><body><div style="margin-bottom:20px;text-align:right"><button onclick="window.print()" style="padding:10px 20px;background:#0f172a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">Print Sheet</button></div><div style="border-bottom:3px solid #0f172a;padding-bottom:20px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:flex-end"><div style="display:flex;align-items:center;gap:12px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg><div><div style="font-family:sans-serif;font-size:24px;font-weight:800">ROALUX MIXLAB</div><div style="font-size:12px;color:#64748b;margin-top:4px">Paint Formulation System — Operator Sheet</div></div></div><div style="text-align:right;font-size:12px;color:#64748b">Generated: ${date} at ${time}</div></div><div style="background:#f1f5f9;padding:15px 20px;border-radius:10px;margin-bottom:30px;display:flex;gap:40px"><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Product</div><div style="font-weight:800;font-size:18px">${esc(p.name)}</div></div><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Target Yield</div><div style="font-weight:800;font-size:18px">${qty} kg</div></div><div><div style="font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;font-weight:600">Total Input</div><div style="font-weight:800;font-size:18px">${actualRawSum.toFixed(3)} kg</div></div></div>${stageBlocks}<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;text-align:center;font-size:11px;color:#94a3b8">End of Formulation Sheet — Roalux MixLab v3.0</div></body></html>`;
+            const win = window.open('', '_blank');
+            win.document.write(html); win.document.close();
+        }
+
+        // ══════════════════════════════════════════
+        // PRICE ESTIMATOR (Admin)
+        // ══════════════════════════════════════════
+        function populateEstSelect() {
+            const sel = document.getElementById('est-product');
+            if (!sel) return;
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">— Select a product —</option>' + products.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+            if (cur) sel.value = cur;
+        }
+
+        function calcEstimate() {
+            const pid = parseInt(document.getElementById('est-product').value);
+            const qty = parseFloat(document.getElementById('est-qty').value) || 0;
+            const margin = parseFloat(document.getElementById('est-margin').value) || 0;
+            const kgPerLitre = parseFloat(document.getElementById('est-kg-per-litre').value) || 0;
+            if (!pid || !qty) return null;
+            const p = products.find(x => x.id === pid); if (!p) return null;
+            const scale = qty / (p.batch || 1);
+            let totalCost = 0, actualRawSum = 0;
+            const stageSummaries = p.stages.map(s => {
+                let stageCost = 0;
+                const stageItems = s.items.map(si => {
+                    const it = items.find(x => x.id === si.itemId); if (!it) return null;
+                    const scaledQty = si.qty * scale;
+                    const unitPrice = effectivePrice(si.itemId); // uses weighted avg if available
+                    const cost = scaledQty * unitPrice;
+                    stageCost += cost; totalCost += cost; actualRawSum += scaledQty;
+                    const s2 = getStock(si.itemId);
+                    return {
+                        name: it.name, unit: it.unit, scaledQty,
+                        price: unitPrice, cost,
+                        usingAvg: (s2.avgPrice !== null && s2.avgPrice > 0 && Math.abs(s2.avgPrice - it.price) > 0.001),
+                        masterPrice: it.price,
+                        stockAvail: s2.qty
+                    };
+                }).filter(Boolean);
+                return { name: s.name, cost: stageCost, items: stageItems };
+            });
+            const salePrice = totalCost * (1 + margin / 100);
+
+            // Litre conversion
+            let litreData = null;
+            if (kgPerLitre > 0) {
+                const totalLitres = qty / kgPerLitre;
+                const costPerLitre = totalCost / totalLitres;
+                const salePricePerLitre = salePrice / totalLitres;
+                litreData = { totalLitres, costPerLitre, salePricePerLitre, kgPerLitre };
+            }
+
+            return { p, qty, margin, scale, totalCost, salePrice, stageSummaries, actualRawSum, litreData };
+        }
+
+        function updateEstimate() {
+            const el = document.getElementById('estimate-output');
+            const pdfBtn = document.getElementById('pdf-btn');
+            if (!el) return;
+            const d = calcEstimate();
+            if (!d) {
+                el.innerHTML = `<div class="card"><div class="empty-state"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 28l8-8 6 6 10-14"/><circle cx="28" cy="10" r="3"/></svg><p>Select a product to see the cost estimate.</p></div></div>`;
+                if (pdfBtn) pdfBtn.style.display = 'none';
+                return;
+            }
+            if (pdfBtn) pdfBtn.style.display = 'inline-flex';
+            const { p, qty, margin, scale, totalCost, salePrice, stageSummaries, actualRawSum, litreData } = d;
+
+            // ── Metric cards (kg-based always + litre if conversion set)
+            const litreMetrics = litreData ? `
+        <div class="metric-card purple">
+            <div class="metric-icon purple"><svg viewBox="0 0 17 17" stroke="var(--purple)"><path d="M8.5 3v10M5 8.5h7"/><circle cx="8.5" cy="8.5" r="6"/></svg></div>
+            <div class="metric-val" style="font-size:18px">Rs. ${litreData.costPerLitre.toFixed(2)}</div>
+            <div class="metric-lbl">Cost per Litre</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">${litreData.totalLitres.toFixed(2)} L total (${litreData.kgPerLitre} kg/L)</div>
+        </div>
+        <div class="metric-card" style="">
+            <div class="metric-icon gold"><svg viewBox="0 0 17 17" stroke="var(--gold)"><path d="M3 12l3-3 2.5 2.5 5-6.5"/></svg></div>
+            <div class="metric-val" style="font-size:18px;color:var(--brand-dark)">Rs. ${litreData.salePricePerLitre.toFixed(2)}</div>
+            <div class="metric-lbl">Selling Price per Litre</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">${margin}% margin applied</div>
+        </div>` : '';
+
+            const metricsGridCols = litreData ? 'repeat(4,1fr)' : 'repeat(3,1fr)';
+            const stageRows = stageSummaries.map((ss, i) => {
+                const subRows = ss.items.map(r => {
+                    const stockOk = r.stockAvail >= r.scaledQty;
+                    const stockWarn = !stockOk ? `<span style="color:var(--danger);font-size:11px;display:block">⚠ Stock: ${r.stockAvail.toFixed(2)} ${r.unit} available</span>` : `<span style="color:var(--green);font-size:10px">✓ ${r.stockAvail.toFixed(2)} in stock</span>`;
+                    const priceNote = r.usingAvg
+                        ? `<span style="font-size:10px;color:var(--purple);display:block">Weighted avg (master: Rs.${parseFloat(r.masterPrice).toFixed(2)})</span>`
+                        : '';
+                    return `<tr class="result-sub" style="background:${!stockOk ? '#fff7f7' : ''}">
+                <td style="color:var(--ink2);font-weight:500">${esc(r.name)}${stockWarn}</td>
+                <td style="font-weight:700;color:var(--brand-dark)">${r.scaledQty.toFixed(4)} ${r.unit}</td>
+                <td style="color:var(--muted);font-size:13px">Rs. ${r.price.toFixed(2)}${priceNote}</td>
+                <td style="text-align:right;font-weight:700">Rs. ${r.cost.toFixed(2)}</td>
+            </tr>`;
+                }).join('');
+                const stageNameEsc = esc(ss.name).toUpperCase();
+                const stagePrefix = stageNameEsc.startsWith('STAGE') ? '' : `<span style="opacity:0.6;margin-right:8px">STAGE ${i + 1}</span>`;
+                return `<tr class="result-section"><td colspan="3" style="background:var(--slate);padding:8px 16px;font-weight:700;font-size:12px">${stagePrefix}${stageNameEsc}</td><td style="text-align:right;background:var(--slate);font-weight:700">Rs. ${ss.cost.toFixed(2)}</td></tr>${subRows}`;
+            }).join('');
+
+            // Litre summary box
+            const litreSummaryBox = litreData ? `
+        <div style="margin-top:16px;padding:16px 20px;background:var(--purple-dim);border-radius:10px;border:1px solid rgba(139,92,246,0.2)">
+            <div style="font-weight:700;color:#5b21b6;margin-bottom:10px;font-size:13px">🧪 Litre Conversion Summary</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+                <div><div style="font-size:10px;color:#6d28d9;text-transform:uppercase;font-weight:600">Density</div><div style="font-weight:800;font-size:15px">${litreData.kgPerLitre} kg/L</div></div>
+                <div><div style="font-size:10px;color:#6d28d9;text-transform:uppercase;font-weight:600">Total Volume</div><div style="font-weight:800;font-size:15px">${litreData.totalLitres.toFixed(2)} L</div></div>
+                <div><div style="font-size:10px;color:#6d28d9;text-transform:uppercase;font-weight:600">Cost / Litre</div><div style="font-weight:800;font-size:15px">Rs. ${litreData.costPerLitre.toFixed(2)}</div></div>
+                <div><div style="font-size:10px;color:#6d28d9;text-transform:uppercase;font-weight:600">Sale Price / Litre</div><div style="font-weight:800;font-size:15px;color:var(--brand-dark)">Rs. ${litreData.salePricePerLitre.toFixed(2)}</div></div>
+            </div>
+        </div>` : '';
+
+            el.innerHTML = `
+        <div class="stats-bar anim" style="background:var(--brand);padding:12px 20px;border-radius:12px">
+            <strong>${esc(p.name)}</strong><div class="stats-bar-sep"></div>
+            <span>Required</span><strong>${qty} kg</strong><div class="stats-bar-sep"></div>
+            <span>Scale</span><strong>${scale.toFixed(4)}×</strong><div class="stats-bar-sep"></div>
+            <span>Margin</span><strong>${margin}%</strong>
+            ${litreData ? `<div class="stats-bar-sep"></div><span>Volume</span><strong>${litreData.totalLitres.toFixed(2)} L</strong>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:${metricsGridCols};gap:14px;margin-bottom:20px" class="anim">
+            <div class="metric-card accent">
+                <div class="metric-icon brand"><svg viewBox="0 0 17 17" stroke="var(--brand)"><rect x="2" y="2" width="13" height="13" rx="2"/><path d="M5 8.5h7M8.5 5v7"/></svg></div>
+                <div class="metric-val">Rs. ${totalCost.toFixed(2)}</div>
+                <div class="metric-lbl">Total Material Cost</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon slate"><svg viewBox="0 0 17 17" stroke="var(--muted)"><circle cx="8.5" cy="8.5" r="5.5"/></svg></div>
+                <div class="metric-val">Rs. ${qty > 0 ? (totalCost / qty).toFixed(2) : '0.00'}</div>
+                <div class="metric-lbl">Cost per kg</div>
+            </div>
+            <div class="metric-card gold">
+                <div class="metric-icon gold"><svg viewBox="0 0 17 17" stroke="var(--gold)"><path d="M3 12l3-3 2.5 2.5 5-6.5"/><circle cx="13" cy="4" r="1.5"/></svg></div>
+                <div class="metric-val" style="color:var(--brand-dark)">Rs. ${salePrice.toFixed(2)}</div>
+                <div class="metric-lbl">Selling Price (${margin}% margin)</div>
+            </div>
+            ${litreMetrics}
+        </div>
+        <div class="card anim">
+            <div class="card-header">
+                <div class="card-title"><div class="card-icon"><svg viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="10" rx="1.5"/></svg></div>Stage-wise Breakdown</div>
+                <span style="font-size:11px;color:var(--muted)">🟣 Purple price = weighted avg cost</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Stage / Ingredient</th><th>Quantity</th><th>Unit Price</th><th style="text-align:right">Cost (Rs.)</th></tr></thead>
+                    <tbody>
+                        ${stageRows || '<tr><td colspan="4" class="empty">No stages defined.</td></tr>'}
+                        <tr class="result-total"><td colspan="3">Total Material Cost</td><td style="text-align:right">Rs. ${totalCost.toFixed(2)}</td></tr>
+                        <tr class="result-margin"><td colspan="3">Profit Margin (${margin}%)</td><td style="text-align:right">Rs. ${(salePrice - totalCost).toFixed(2)}</td></tr>
+                        <tr class="result-sale"><td colspan="3">Estimated Selling Price</td><td style="text-align:right">Rs. ${salePrice.toFixed(2)}</td></tr>
+                        ${litreData ? `<tr style="background:var(--purple-dim)"><td colspan="3" style="font-weight:700;color:#5b21b6">Selling Price per Litre (${litreData.kgPerLitre} kg/L)</td><td style="text-align:right;font-weight:800;color:#5b21b6">Rs. ${litreData.salePricePerLitre.toFixed(2)}</td></tr>` : ''}
+                    </tbody>
+                </table>
+            </div>
+            ${litreSummaryBox}
+        </div>`;
+        }
+
+        function exportPDF() {
+            const d = calcEstimate(); if (!d) return;
+            const { p, qty, margin, scale, totalCost, salePrice, stageSummaries } = d;
+            const date = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const stageBlocks = stageSummaries.map(ss => {
+                const subRows = ss.items.map(r => `<tr style="background:#f9f9f9"><td style="padding:6px 12px 6px 30px;color:#555;font-size:12px">${esc(r.name)}</td><td style="padding:6px 12px;color:#555;font-size:12px">${r.scaledQty.toFixed(4)} ${r.unit}</td><td style="padding:6px 12px;color:#555;font-size:12px">Rs. ${r.price.toFixed(2)}</td><td style="padding:6px 12px;text-align:right;font-size:12px">Rs. ${r.cost.toFixed(2)}</td></tr>`).join('');
+                return `<tr style="background:#eef3f9"><td style="padding:8px 12px;font-weight:700">${esc(ss.name)}</td><td colspan="2" style="padding:8px 12px;font-size:11px;color:#6b7f96">${ss.items.length} ingredient${ss.items.length !== 1 ? 's' : ''}</td><td style="padding:8px 12px;text-align:right;font-weight:700">Rs. ${ss.cost.toFixed(2)}</td></tr>${subRows}`;
+            }).join('');
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Price Estimate — ${esc(p.name)}</title><style>*{box-sizing:border-box}body{font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:#0f1923;padding:40px}table{width:100%;border-collapse:collapse;margin-bottom:24px}th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;color:#6b7f96;text-transform:uppercase;border-bottom:1.5px solid #e2eaf2;background:#f8f9fb}td{padding:7px 12px;border-bottom:1px solid #f0f0f0}.no-print{margin-bottom:20px}@media print{.no-print{display:none}}</style></head><body><div class="no-print"><button onclick="window.print()" style="padding:10px 22px;background:#0f172a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Print / Save as PDF</button></div><div style="border-bottom:3px solid #0f172a;padding-bottom:20px;margin-bottom:30px;display:flex;justify-content:space-between"><div style="display:flex;align-items:center;gap:12px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg><div><div style="font-size:22px;font-weight:900">ROALUX MIXLAB</div><div style="font-size:11px;color:#64748b">Paint Formulation System</div></div></div><div style="text-align:right"><div style="font-size:20px;font-weight:800">Price Estimate</div><div style="font-size:11px;color:#aaa">${date}</div></div></div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px">${[['Product', esc(p.name)], ['Batch', p.batch + ' kg'], ['Required', qty + ' kg'], ['Scale', scale.toFixed(4) + '×'], ['Margin', margin + '%']].map(([l, v]) => `<div style="background:#f4f7fc;border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:#6b7f96;text-transform:uppercase;font-weight:600;margin-bottom:3px">${l}</div><div style="font-size:13px;font-weight:700">${v}</div></div>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px">${[['Total Material Cost', 'Rs. ' + totalCost.toFixed(2)], ['Cost per kg', 'Rs. ' + (qty > 0 ? (totalCost / qty).toFixed(2) : '0.00')], ['Selling Price (' + margin + '%)', 'Rs. ' + salePrice.toFixed(2)]].map(([l, v]) => `<div style="border:1.5px solid #e2eaf2;border-radius:10px;padding:14px 16px;text-align:center"><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:10px;color:#6b7f96;text-transform:uppercase;margin-top:4px">${l}</div></div>`).join('')}</div><table><thead><tr><th>Stage / Ingredient</th><th>Quantity</th><th>Rate</th><th style="text-align:right">Cost</th></tr></thead><tbody>${stageBlocks}<tr style="border-top:2px solid #c8d6e5"><td colspan="3" style="font-weight:700;padding-top:12px">Total Material Cost</td><td style="text-align:right;font-weight:700;padding-top:12px">Rs. ${totalCost.toFixed(2)}</td></tr><tr><td colspan="3" style="color:#555">Profit Margin (${margin}%)</td><td style="text-align:right;color:#555">Rs. ${(salePrice - totalCost).toFixed(2)}</td></tr><tr><td colspan="3" style="font-weight:800;font-size:15px;color:#00a381">Estimated Selling Price</td><td style="text-align:right;font-weight:800;font-size:15px;color:#00a381">Rs. ${salePrice.toFixed(2)}</td></tr></tbody></table><div style="text-align:center;font-size:10px;color:#aaa;margin-top:32px;padding-top:12px;border-top:1px solid #eee">Roalux MixLab v3.0 — Confidential</div></body></html>`;
+            const win = window.open('', '_blank');
+            win.document.write(html); win.document.close();
+        }
+
+        // ══════════════════════════════════════════
+        // HELPERS
+        // ══════════════════════════════════════════
+        function updateNavCounts() {
+            const ic = document.getElementById('nav-item-count');
+            const pc = document.getElementById('nav-prod-count');
+            const sl = document.getElementById('nav-stock-low');
+            if (ic) ic.textContent = items.length;
+            if (pc) pc.textContent = products.length;
+            if (sl) {
+                const lowCount = items.filter(it => stockStatus(it.id) !== 'ok').length;
+                sl.textContent = lowCount;
+                sl.style.background = lowCount > 0 ? 'var(--danger)' : '';
+            }
+        }
+
+        function populateAllSelects() {
+            populateEstSelect();
+            populateStockSelect();
+            const userSel = document.getElementById('user-product');
+            if (!userSel) return;
+            const cur = userSel.value;
+            userSel.innerHTML = '<option value="">— Select Product —</option>' + products.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+            if (cur) userSel.value = cur;
+        }
+
+        function esc(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+
+</html>
