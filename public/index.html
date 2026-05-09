@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roalux MixLab — Professional Paint Formulation System</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <link rel="icon" type="image/png" href="Roalux_PNG.png">
+</head>
+<body>
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-mark">
+                    <div class="logo-icon" style="background: transparent;">
+                        <img src="Roalux_PNG.png" alt="Roalux MixLab Logo" style="width: 36px; height: 36px; object-fit: contain;">
+                    </div>
+                    <div>
+                        <div class="logo-text"><span>MIX</span>LAB</div>
+                        <div class="logo-sub">Paint Recipe</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="role-badge-wrap" id="role-badge-wrap" style="display:none">
+                <div class="role-badge" id="sidebar-role-badge"></div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <!-- Calculator (visible only after login) -->
+                <div class="manager-only admin-only" style="display:none">
+                    <div class="nav-label">Calculator</div>
+                    <button class="nav-item active" onclick="showTab('user-calc')" id="nav-user-calc">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                                stroke-linecap="round">
+                                <rect x="3" y="3" width="12" height="12" rx="2" />
+                                <line x1="6" y1="7" x2="12" y2="7" />
+                                <line x1="6" y1="11" x2="12" y2="11" />
+                            </svg></span>
+                        Mix Calculator
+                    </button>
+                </div>
+
+                <!-- Manager + Admin -->
+                <div class="manager-only" style="display:none">
+                    <div class="nav-label">Inventory</div>
+                    <button class="nav-item" onclick="showTab('stock')" id="nav-stock">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <path d="M3 6l6-4 6 4v8l-6 4-6-4V6z" />
+                                <path d="M9 2v14M3 6l6 4 6-4" />
+                            </svg></span>
+                        Stock Management
+                        <span class="nav-badge" id="nav-stock-low">0</span>
+                    </button>
+                    
+                </div>
+                <!-- Admin only -->
+                <div class="admin-only" style="display:none">
+                    <div class="nav-label">Admin Masters</div>
+                    <button class="nav-item" onclick="showTab('items')" id="nav-items">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <rect x="2" y="2" width="6" height="6" rx="1.5" />
+                                <rect x="10" y="2" width="6" height="6" rx="1.5" />
+                                <rect x="2" y="10" width="6" height="6" rx="1.5" />
+                                <rect x="10" y="10" width="6" height="6" rx="1.5" />
+                            </svg></span>
+                        Raw Materials
+                        <span class="nav-badge" id="nav-item-count">0</span>
+                    </button>
+                    <button class="nav-item" onclick="showTab('products')" id="nav-products">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <path d="M3 6l6-4 6 4v8l-6 4-6-4V6z" />
+                                <path d="M9 2v14M3 6l6 4 6-4" />
+                            </svg></span>
+                        Product Master
+                        <span class="nav-badge" id="nav-prod-count">0</span>
+                    </button>
+                    <button class="nav-item" onclick="showTab('purchases')" id="nav-purchases">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 16H4a2 2 0 01-2-2V4a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zM6 12h6M6 8h6M6 4h6"/></svg></span>
+                        Purchase Entry
+                    </button>
+                    <div class="nav-label">Pricing</div>
+                    <button class="nav-item" onclick="showTab('estimate')" id="nav-estimate">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round">
+                                <path d="M3 14l4-4 3 3 5-7" />
+                                <circle cx="14" cy="5" r="1.5" />
+                            </svg></span>
+                        Price Estimator
+                    </button>
+                    <div class="nav-label">Analysis</div>
+                    <button class="nav-item" onclick="showTab('history')" id="nav-history">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                            <path d="M3 3h12v12H3z"/><path d="M3 7h12M3 11h12M7 3v12"/>
+                        </svg></span>
+                        Batch History
+                    </button>
+
+                    <button class="nav-item" onclick="showTab('reports')" id="nav-reports">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3h12v12H3z"/><path d="M7 12V7M11 12V4"/></svg></span>
+                        Daily Reports
+                    </button>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <p>© 2026 Roalux MixLab</p>
+                <p style="margin-top:3px">v3.0 — Multi-Role System</p>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="main">
+
+            <!-- LOGIN / ROLE SELECT -->
+            <div id="tab-login" class="anim">
+                <div class="login-wrap">
+                    <div class="login-card">
+                        <h2><img src="Roalux_PNG.png" alt="Roalux Logo" style="height: 32px; vertical-align: middle; margin-right: 8px;">MixLab</h2>
+                        <p id="login-sub">Select your role to continue</p>
+
+                        <div class="role-selector" id="role-selector">
+                            <div class="role-btn" onclick="selectRole('manager')" id="role-btn-manager">
+                                <div class="role-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
+                                <div class="role-name">Manager</div>
+                                <div class="role-desc">Stock + Calc</div>
+                            </div>
+                            <div class="role-btn" onclick="selectRole('admin')" id="role-btn-admin">
+                                <div class="role-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
+                                <div class="role-name">Admin</div>
+                                <div class="role-desc">Full Access</div>
+                            </div>
+                        </div>
+
+                        <div class="login-field" id="pw-field" style="display:none">
+                            <label id="pw-label">Password</label>
+                            <input type="text" id="admin-pw" placeholder="••••••••" style="-webkit-text-security:disc;"
+                                autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
+                        </div>
+
+                        <button class="btn btn-brand" id="login-btn" onclick="doLogin()"
+                            style="width:100%;height:46px;border-radius:10px;font-size:15px;margin-bottom:15px;display:flex;align-items:center;justify-content:center;">
+                            Continue
+                        </button>
+                        <div id="login-error"
+                            style="display:none;color:var(--danger);font-size:13px;font-weight:600;margin-top:-8px;margin-bottom:10px;text-align:center;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Incorrect password. Please try again.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MIX CALCULATOR -->
+            <div id="tab-user-calc" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Mix Calculator</div>
+                        <div class="page-subtitle">Select a product and quantity to get the recipe</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><svg viewBox="0 0 16 16"><path d="M3 3h10v10H3z" stroke="currentColor" stroke-width="1.5" /><line x1="3" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5" /><line x1="3" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="1.5" /></svg></div>
+                            Calculation Parameters
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Group Code</label>
+                            <div class="dropdown-container">
+                                <input type="text" id="user-group" placeholder="ABC" maxlength="3" style="width:100px; text-transform: uppercase;" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Product Name</label>
+                            <div class="dropdown-container">
+                                <input type="text" id="user-product" placeholder="Select Product..." style="width:280px" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Total Quantity (kg)</label>
+                            <input type="number" id="user-qty" value="100" min="0.01" step="0.01" style="width:150px" oninput="updateUserCalc()">
+                        </div>
+                        <div class="field">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-brand" onclick="updateUserCalc()">Calculate</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="user-calc-output"></div>
+            </div>
+
+            <!-- PURCHASE ENTRY -->
+            <div id="tab-purchases" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Purchase Entry</div>
+                        <div class="page-subtitle">Record new raw material arrivals</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Bulk Purchase Arrival</div>
+                    </div>
+                    <div style="padding:20px">
+                        <div class="field" style="margin-bottom:20px">
+                            <label>Vendor / Source Name</label>
+                            <input type="text" id="purch-vendor-bulk" placeholder="Enter vendor name" style="width:100%; max-width:400px;">
+                        </div>
+                        <div class="form-grid">
+                            <div class="field">
+                                <label>Material</label>
+                                <input type="text" id="purch-item-bulk" placeholder="Search material..." style="width:320px" autocomplete="off">
+                            </div>
+                            <div class="field">
+                                <label>Quantity</label>
+                                <input type="number" id="purch-qty-bulk" placeholder="0.00" step="0.01" style="width:140px">
+                            </div>
+                            <div class="field">
+                                <label>Unit Price (Rs.)</label>
+                                <input type="number" id="purch-price-bulk" placeholder="0.00" step="0.01" style="width:140px">
+                            </div>
+                            <div class="field">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-brand" onclick="addPurchaseItemToDraft()" style="width:100%; font-weight:700;">+ Add</button>
+                            </div>
+                        </div>
+                        <div id="purch-draft-container" style="display:none; margin-top:20px">
+                            <div class="table-wrap">
+                                <table>
+                                    <thead><tr><th>Material</th><th>Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
+                                    <tbody id="purch-draft-tbody"></tbody>
+                                </table>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--ink); color:#fff; padding:12px 20px; border-radius:10px; margin-top:15px">
+                                <div id="purch-draft-total">Rs. 0.00</div>
+                                <button class="btn btn-brand" onclick="confirmBulkPurchase()" id="purch-bulk-btn">Save Arrival</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Recent History</div></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Date</th><th>Material</th><th>Qty</th><th>Price</th><th>Vendor</th></tr></thead>
+                            <tbody id="purch-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DAILY REPORTS -->
+            <div id="tab-reports" style="display:none" class="anim">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Daily Reports</div>
+                    </div>
+                    <input type="date" id="report-date" onchange="renderDailyReport(this.value)">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px">
+                    <div class="metric-card accent"><div class="metric-lbl">Total Produced</div><div id="rep-total-prod" class="metric-val">0 kg</div></div>
+                    <div class="metric-card"><div class="metric-lbl">Total Spend</div><div id="rep-total-spend" class="metric-val">Rs. 0</div></div>
+                </div>
+                <div class="card"><div class="card-header">Productions</div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Batch #</th><th>Product</th><th>Qty</th></tr></thead><tbody id="rep-prod-tbody"></tbody></table></div></div>
+                <div class="card"><div class="card-header">Purchases</div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Material</th><th>Qty</th><th>Value</th><th>Vendor</th></tr></thead><tbody id="rep-purch-tbody"></tbody></table></div></div>
+                <div class="card"><div class="card-header">Usage</div><div class="table-wrap"><table><thead><tr><th>Material</th><th>Consumed</th><th>Unit</th></tr></thead><tbody id="rep-usage-tbody"></tbody></table></div></div>
+            </div>
+
+            <!-- STOCK MANAGEMENT -->
+            <div id="tab-stock" style="display:none" class="anim">
+                <div class="page-header"><div class="page-title">Stock Management</div></div>
+                <div id="low-stock-alerts" style="display:none"></div>
+                <div class="card" id="stock-add-card">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Material</label>
+                            <div class="dropdown-container">
+                                <input type="text" id="stock-item-sel" placeholder="Search material..." style="width:320px" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Quantity</label>
+                            <input type="number" id="stock-add-qty" placeholder="0.00" step="0.01" style="width:140px">
+                        </div>
+                        <div class="field">
+                            <label>Unit Price (Rs.)</label>
+                            <input type="number" id="stock-add-price" placeholder="0.00" step="0.01" style="width:140px">
+                        </div>
+                        <div class="field">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-brand" onclick="addStock()" style="width:100%; font-weight:700;">+ Add</button>
+                        </div>
+                    </div>
+                    <div id="stock-avg-preview" style="display:none; margin-top:10px;"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Inventory</div><input type="text" id="stock-search" oninput="renderStock()" placeholder="Search..."></div>
+                    <div class="table-wrap"><table><thead><tr><th>#</th><th>Material</th><th>Unit</th><th>Stock</th><th class="admin-col">Avg Price</th></tr></thead><tbody id="stock-tbody"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- RAW MATERIALS -->
+            <div id="tab-items" style="display:none" class="anim">
+                <div class="page-header"><div class="page-title">Raw Materials</div></div>
+                <div class="card">
+                    <div class="form-grid">
+                        <div class="field"><label>Code</label><input type="text" id="item-code" placeholder="e.g. A111" maxlength="4" oninput="this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1)"></div>
+                        <div class="field"><label>Name</label><input type="text" id="item-name"></div>
+                        <div class="field"><label>Unit</label><input type="text" id="item-unit" value="kg" readonly style="background:var(--slate); color:var(--muted); font-weight:700; width:60px; text-align:center;"></div>
+                        <div class="field"><label>Price</label><input type="number" id="item-price"></div>
+                        <button class="btn btn-brand" onclick="addItem()">Add Item</button>
+                    </div>
+                </div>
+                <div class="card"><div class="table-wrap"><table><thead><tr><th>#</th><th>Code</th><th>Name</th><th>Unit</th><th>Price</th><th>Min Threshold</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="item-tbody"></tbody></table></div></div>
+            </div>
+
+            <!-- PRODUCT MASTER -->
+            <div id="tab-products" style="display:none" class="anim">
+                <div class="page-header"><div class="page-title">Product Master</div><button class="btn btn-brand" onclick="showTab('create-product')">+ Create</button></div>
+                <div style="display:flex; gap:16px; margin-bottom:20px;">
+                    <div class="field" style="flex:1; max-width:200px;">
+                        <label>Group Code</label>
+                        <div class="dropdown-container">
+                            <input type="text" id="prod-master-group" placeholder="Select Group..." autocomplete="off" style="width:100%">
+                        </div>
+                    </div>
+                    <div class="field" style="flex:2;">
+                        <label>Product Name</label>
+                        <div class="dropdown-container">
+                            <input type="text" id="prod-master-search" placeholder="Select Product..." autocomplete="off" style="width:100%">
+                        </div>
+                    </div>
+                </div>
+                <div id="prod-list"></div>
+            </div>
+
+            <!-- CREATE PRODUCT -->
+            <div id="tab-create-product" style="display:none" class="anim">
+                <div class="page-header" style="margin-bottom:30px;">
+                    <div>
+                        <div class="page-title">New Product</div>
+                        <div class="page-subtitle">Define configuration and recipe for a new product.</div>
+                    </div>
+                    <button class="btn btn-ghost" onclick="showTab('products')">Cancel</button>
+                </div>
+                
+                <div style="display:flex; flex-direction:column; gap:24px;">
+                    <!-- Configuration Section -->
+                    <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--slate3);">
+                        <div style="padding:18px 24px; background:var(--slate); border-bottom:1px solid var(--slate2);">
+                            <h3 style="font-family:var(--font-display); font-size:15px; color:var(--ink); margin-bottom:4px;">Product Configuration</h3>
+                            <p style="font-size:12px; color:var(--muted);">Set the code, name, and baseline metrics.</p>
+                        </div>
+                        <div style="padding:24px;">
+                            <div style="display:grid; grid-template-columns: 1fr 2.5fr 1fr 1fr; gap:20px;">
+                                <div class="field">
+                                    <label>Group Code</label>
+                                    <input type="text" id="prod-group" maxlength="3" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z]/g,'')" placeholder="REX" style="width:100%; font-weight:600; font-family:monospace; font-size:14px; letter-spacing:1px;">
+                                </div>
+                                <div class="field">
+                                    <label>Product Name</label>
+                                    <input type="text" id="prod-name" placeholder="Enter full product name..." style="width:100%; font-size:14px;">
+                                </div>
+                                <div class="field">
+                                    <label>Batch Size (kg)</label>
+                                    <input type="number" id="prod-batch" value="100" style="width:100%; font-size:14px;">
+                                </div>
+                                <div class="field">
+                                    <label>Density (kg/L)</label>
+                                    <input type="number" id="prod-density" value="1" style="width:100%; font-size:14px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recipe Section -->
+                    <div class="card" style="padding:0; border:1px solid var(--slate3);">
+                        <div style="padding:18px 24px; background:var(--white); border-bottom:1px solid var(--slate2); display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <h3 style="font-family:var(--font-display); font-size:15px; color:var(--ink); margin-bottom:4px;">Recipe Editor</h3>
+                                <p style="font-size:12px; color:var(--muted);">Build the recipe by adding stages and raw materials.</p>
+                            </div>
+                            <button class="btn btn-sm btn-brand" onclick="addStage('draft')" style="box-shadow: 0 2px 8px var(--brand-dim);">+ Add Stage</button>
+                        </div>
+                        <div style="padding:24px; background:#fafbfc; min-height:200px;">
+                            <div id="draft-stages-wrap"></div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; padding-top:10px;">
+                        <button class="btn btn-primary" onclick="addProduct()" style="height:44px; padding:0 32px; font-size:14px; border-radius:10px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);">Save Product</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRICE ESTIMATOR -->
+            <div id="tab-estimate" style="display:none" class="anim">
+                <div class="page-header"><div class="page-title">Price Estimator</div><button class="btn btn-brand" id="pdf-btn" onclick="exportPDF()" style="display:none">Export PDF</button></div>
+                <div class="card" style="margin-bottom:24px; border:1px solid var(--slate2); box-shadow:0 4px 20px rgba(0,0,0,0.03);">
+                    <div style="padding:24px; display:grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap:24px;">
+                        <div class="field">
+                            <label style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:700;">Group</label>
+                            <div class="dropdown-container">
+                                <input type="text" id="est-group" placeholder="Code..." autocomplete="off" style="width:100%; font-weight:600; text-transform:uppercase;">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:700;">Product Name</label>
+                            <div class="dropdown-container">
+                                <input type="text" id="est-product" placeholder="Select product..." autocomplete="off" style="width:100%; font-weight:600;">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:700;">Batch Qty (Litres)</label>
+                            <input type="number" id="est-qty" value="100" style="width:100%; font-weight:600; text-align:center;" oninput="updateEstimate()">
+                        </div>
+                        <div class="field">
+                            <label style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:700;">Profit Margin (%)</label>
+                            <input type="number" id="est-margin" value="20" style="width:100%; font-weight:600; text-align:center;" oninput="updateEstimate()">
+                        </div>
+                    </div>
+                </div>
+                <div id="estimate-output"></div>
+            </div>
+
+            <!-- BATCH HISTORY -->
+            <div id="tab-history" style="display:none" class="anim">
+                <div class="page-header"><div class="page-title">Batch History</div></div>
+                <div class="card"><div class="table-wrap"><table><thead><tr><th>Batch #</th><th>Date / Time</th><th>Product [Code]</th><th>Qty</th><th>Actions</th></tr></thead><tbody id="history-tbody"></tbody></table></div></div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.v2.js"></script>
+</body>
+</html>
