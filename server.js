@@ -78,25 +78,40 @@ app.delete('/api/items/:id', async (req, res) => {
 // API Endpoints - Products
 app.get('/api/products', async (req, res) => {
     console.log('GET /api/products');
-    const { data, error } = await supabase.from('products').select('*');
-    if (error) {
+    try {
+        const [prodRes, modRes] = await Promise.all([
+            supabase.from('products').select('*'),
+            supabase.from('production_history').select('product_id, created_at').eq('batch_number', 'MOD').order('created_at', { ascending: false })
+        ]);
+
+        if (prodRes.error) throw prodRes.error;
+        if (modRes.error) throw modRes.error;
+
+        const products = prodRes.data.map(p => {
+            const latestMod = modRes.data.find(m => String(m.product_id) === String(p.id));
+            return { 
+                ...p, 
+                stages: JSON.parse(p.stages || '[]'),
+                modified_at: latestMod ? latestMod.created_at : p.created_at
+            };
+        });
+        res.json(products);
+    } catch (error) {
         console.error('Supabase Error (GET products):', error);
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message });
     }
-    // Parse stages JSON string back to object
-    const products = data.map(p => ({ ...p, stages: JSON.parse(p.stages || '[]') }));
-    res.json(products);
 });
 
 app.post('/api/products', async (req, res) => {
     console.log('POST /api/products', req.body.name);
     const { name, batch, desc, density, group_code, color, stages } = req.body;
     const stagesStr = JSON.stringify(stages || []);
-    // Check for duplicates (case-insensitive)
+    // Check for duplicates in same group (case-insensitive)
     const { data: existing, error: checkErr } = await supabase
         .from('products')
         .select('id')
-        .ilike('name', name);
+        .ilike('name', name)
+        .eq('group_code', group_code);
 
     if (checkErr) {
         console.error('Check Error:', checkErr);
@@ -104,7 +119,7 @@ app.post('/api/products', async (req, res) => {
     }
 
     if (existing && existing.length > 0) {
-        return res.status(400).json({ error: `Product "${name}" already exists.` });
+        return res.status(400).json({ error: `Product "${name}" already exists in group "${group_code}".` });
     }
 
     const { data, error } = await supabase
@@ -122,15 +137,109 @@ app.put('/api/products/:id', async (req, res) => {
     console.log('PUT /api/products', req.params.id);
     const { name, batch, desc, density, group_code, color, stages } = req.body;
     const stagesStr = JSON.stringify(stages || []);
-    const { error } = await supabase
-        .from('products')
-        .update({ name, batch, desc, density, group_code, color, stages: stagesStr })
-        .eq('id', req.params.id);
-    if (error) {
+    
+    try {
+        // 1. Check for duplicates in same group (excluding current product)
+        const { data: existing, error: checkErr } = await supabase
+            .from('products')
+            .select('id')
+            .ilike('name', name)
+            .eq('group_code', group_code)
+            .neq('id', req.params.id);
+
+        if (checkErr) throw checkErr;
+        if (existing && existing.length > 0) {
+            return res.status(400).json({ error: `Product "${name}" already exists in group "${group_code}".` });
+        }
+
+        // 2. Fetch current product to compare changes
+        const { data: currentProduct, error: fetchErr } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+        
+        if (fetchErr) throw fetchErr;
+
+        // 3. Update product
+        const { error: updErr } = await supabase
+            .from('products')
+            .update({ name, batch, desc, density, group_code, color: color || null, stages: stagesStr })
+            .eq('id', req.params.id);
+        
+        if (updErr) throw updErr;
+
+        // 4. Generate modification details
+        const { data: itemsData } = await supabase.from('items').select('id, name');
+        const itemMap = {};
+        if (itemsData) itemsData.forEach(it => itemMap[it.id] = it.name);
+
+        const oldItemsMap = {};
+        const oldStages = JSON.parse(currentProduct.stages || '[]');
+        oldStages.forEach(s => {
+            if (s.items) {
+                const itemsArray = Array.isArray(s.items) ? s.items : [s.items];
+                itemsArray.forEach(i => {
+                    oldItemsMap[i.itemId] = (oldItemsMap[i.itemId] || 0) + parseFloat(i.qty || 0);
+                });
+            }
+        });
+
+        const newItemsMap = {};
+        (stages || []).forEach(s => {
+            if (s.items) {
+                const itemsArray = Array.isArray(s.items) ? s.items : [s.items];
+                itemsArray.forEach(i => {
+                    newItemsMap[i.itemId] = (newItemsMap[i.itemId] || 0) + parseFloat(i.qty || 0);
+                });
+            }
+        });
+
+        const changes = [];
+        
+        // Check for removed or changed items
+        Object.keys(oldItemsMap).forEach(itemId => {
+            const oldQty = oldItemsMap[itemId];
+            const newQty = newItemsMap[itemId];
+            const rmName = itemMap[itemId] || `RM ${itemId}`;
+
+            if (newQty === undefined) {
+                changes.push(`Removed ${rmName}`);
+            } else if (Math.abs(newQty - oldQty) > 0.001) {
+                const action = newQty > oldQty ? "Increased" : "Reduced";
+                changes.push(`${action} ${rmName} qty`);
+            }
+        });
+
+        // Check for added items
+        Object.keys(newItemsMap).forEach(itemId => {
+            if (oldItemsMap[itemId] === undefined) {
+                const rmName = itemMap[itemId] || `RM ${itemId}`;
+                changes.push(`Added ${rmName}`);
+            }
+        });
+
+        const details = changes.join(', ');
+        const logName = `[MODIFIED] ${name}${details ? ` (${details})` : ''}`;
+
+        // 5. Log modification to daily report
+        const { error: logError } = await supabase
+            .from('production_history')
+            .insert([{
+                product_id: req.params.id,
+                product_name: logName,
+                quantity: 0,
+                batch_number: 'MOD',
+                stages_data: '[]'
+            }]);
+        
+        if (logError) console.error('Failed to log product modification:', logError);
+
+        res.json({ updated: 1 });
+    } catch (error) {
         console.error('Supabase Error (PUT products):', error);
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message });
     }
-    res.json({ updated: 1 });
 });
 
 app.delete('/api/products/:id', async (req, res) => {
@@ -226,6 +335,7 @@ app.get('/api/batches', async (req, res) => {
     const { data, error } = await supabase
         .from('production_history')
         .select('*')
+        .neq('batch_number', 'MOD')
         .order('created_at', { ascending: false });
     if (error) {
         console.error('Supabase Error (GET batches):', error);
@@ -250,9 +360,18 @@ app.get('/api/reports/daily', async (req, res) => {
         if (prodRes.error) throw prodRes.error;
         if (purchRes.error) throw purchRes.error;
 
-        // Calculate aggregated RM Usage
+        // Calculate aggregated RM Usage and separate modifications
         const rmUsage = {};
+        const productions = [];
+        const modifications = [];
+
         prodRes.data.forEach(batch => {
+            if (batch.batch_number === 'MOD') {
+                modifications.push(batch);
+                return; // Skip calculating usage for modifications
+            }
+            productions.push(batch);
+
             let stages = [];
             try { stages = typeof batch.stages_data === 'string' ? JSON.parse(batch.stages_data) : (batch.stages_data || []); } catch(e) {}
             stages.forEach(stage => {
@@ -264,10 +383,31 @@ app.get('/api/reports/daily', async (req, res) => {
             });
         });
 
+        const groupedPurchases = {};
+        purchRes.data.forEach(p => {
+            const vendor = p.vendor || 'Unknown Vendor';
+            if (!groupedPurchases[vendor]) {
+                groupedPurchases[vendor] = {
+                    vendor: vendor,
+                    created_at: p.created_at,
+                    items: []
+                };
+            }
+            groupedPurchases[vendor].items.push({
+                name: p.items ? p.items.name : `RM ${p.itemId}`,
+                qty: parseFloat(p.qty),
+                price: parseFloat(p.price),
+                unit: p.items ? p.items.unit : 'kg'
+            });
+        });
+
+        const purchasesSummary = Object.values(groupedPurchases);
+
         res.json({
-            productions: prodRes.data,
-            purchases: purchRes.data,
-            rmUsage: Object.entries(rmUsage).map(([name, data]) => ({ name, ...data }))
+            productions: productions,
+            purchases: purchasesSummary,
+            rmUsage: Object.entries(rmUsage).map(([name, data]) => ({ name, ...data })),
+            modifications: modifications
         });
     } catch (error) {
         console.error('Report Error:', error);
@@ -347,6 +487,20 @@ app.post('/api/batches', async (req, res) => {
     }
 });
 
+app.put('/api/batches/:id/complete', async (req, res) => {
+    console.log('PUT /api/batches/:id/complete', req.params.id);
+    const { error } = await supabase
+        .from('production_history')
+        .update({ status: 'completed' })
+        .eq('id', req.params.id);
+    
+    if (error) {
+        console.error('Supabase Error (PUT batches):', error);
+        return res.status(500).json({ error: error.message });
+    }
+    res.json({ success: true });
+});
+
 // API Endpoints - Consume Stock
 app.post('/api/stocks/consume', async (req, res) => {
     const { productId, qty, ingredients } = req.body;
@@ -408,17 +562,19 @@ app.post('/api/purchases', async (req, res) => {
     try {
         const results = [];
         for (const p of purchases) {
-            const { itemId, qty, price, vendor } = p;
+            const { itemId, qty, price, vendor, reference } = p;
             console.log(`Processing purchase for Item ${itemId}: Qty ${qty}, Price ${price}`);
             if (!itemId || !qty || isNaN(qty) || isNaN(price)) {
                 console.log('Skipping invalid item:', p);
                 continue;
             }
 
+            const vendorWithRef = reference ? `${vendor} (Ref: ${reference})` : vendor;
+
             // 1. Add batch
             const { data: batch, error: batchError } = await supabase
                 .from('stock_batches')
-                .insert([{ "itemId": itemId, qty, price, vendor }])
+                .insert([{ "itemId": itemId, qty, price, vendor: vendorWithRef }])
                 .select();
             if (batchError) {
                 console.error('Batch Insert Error:', batchError);

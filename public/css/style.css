@@ -228,6 +228,9 @@ body {
 /* Role badge in sidebar */
 .role-badge-wrap {
     padding: 12px 22px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .role-badge {
@@ -1219,4 +1222,32 @@ tbody tr:hover {
     text-align: center;
     color: var(--muted);
     font-size: 12px;
+}
+
+/* Custom Button Styles for Results Bar */
+.btn-export-sheet {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    transition: all 0.2s ease;
+}
+.btn-export-sheet:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.btn-reduce-stock {
+    background: var(--ink);
+    color: #fff;
+    border: 1px solid var(--ink);
+    transition: all 0.2s ease;
+}
+.btn-reduce-stock:hover:not(:disabled) {
+    background: #334155; /* Slate 700 */
+    border-color: #334155;
+}
+.btn-reduce-stock:disabled {
+    background: #94a3b8 !important;
+    border-color: #94a3b8 !important;
+    cursor: not-allowed;
 }

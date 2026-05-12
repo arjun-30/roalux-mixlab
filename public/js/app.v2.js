@@ -6,6 +6,8 @@ let stocks = {};      // { itemId: { qty: number, threshold: number, avgPrice: n
 let draftPurchaseItems = [];
 let currentRole = null; // 'manager' | 'admin'
 let selectedLoginRole = null;
+let currentReportData = null;
+let currentReportDate = null;
 
 const PASSWORDS = {
     manager: 'manager123',
@@ -135,6 +137,15 @@ function doLogin() {
     }
 }
 
+function logout() {
+    currentRole = null;
+    selectedLoginRole = null;
+    const pwEl = document.getElementById('admin-pw');
+    if (pwEl) pwEl.value = '';
+    applyRole(null);
+    showTab('login');
+}
+
 function applyRole(role) {
     const roleBadgeWrap = document.getElementById('role-badge-wrap');
     const badge = document.getElementById('sidebar-role-badge');
@@ -142,6 +153,8 @@ function applyRole(role) {
     const adminSections = document.querySelectorAll('.admin-only');
 
     roleBadgeWrap.style.display = role ? 'block' : 'none';
+    const logoutWrap = document.getElementById('logout-wrap');
+    if (logoutWrap) logoutWrap.style.display = role ? 'block' : 'none';
     if (!role) {
         managerSections.forEach(el => el.style.display = 'none');
         adminSections.forEach(el => el.style.display = 'none');
@@ -343,8 +356,25 @@ function populateStockSelect() {
     }
 
     initSearchableDropdown('stock-item-sel', items, (it) => {
+        const codeInput = document.getElementById('stock-code-sel');
+        if (codeInput) codeInput.value = it.code || '';
         onStockItemChange();
     }, 'code');
+
+    const codeInput = document.getElementById('stock-code-sel');
+    if (codeInput) {
+        codeInput.addEventListener('input', () => {
+            const code = codeInput.value.trim().toUpperCase();
+            if (!code) return;
+            const match = items.find(it => (it.code || '').toUpperCase() === code);
+            if (match) {
+                const itemInput = document.getElementById('stock-item-sel');
+                itemInput.value = match.name;
+                itemInput.setAttribute('data-id', match.id);
+                onStockItemChange();
+            }
+        });
+    }
 }
 
 function onStockItemChange() {
@@ -595,7 +625,6 @@ function renderItems() {
                     onchange="updateThreshold(${it.id},this.value)" title="Alert Threshold (kg)">
             </td>
             <td>${stockDisplay}</td>
-            <td><button class="btn btn-sm btn-danger" onclick="deleteItem(${it.id})">Remove</button></td>
         </tr>`;
     }).join('');
 }
@@ -617,18 +646,38 @@ async function addProduct() {
         alert("Please add at least one stage and material before saving.");
         return;
     }
+    
+    // Check for pending items not yet added
+    let hasPending = false;
+    draftStages.forEach(s => {
+        const input = document.getElementById(`si-sel-draft-${s.id}`);
+        const qtyEl = document.getElementById(`si-qty-draft-${s.id}`);
+        if (input && input.getAttribute('data-id') && qtyEl && qtyEl.value) {
+            hasPending = true;
+        }
+    });
+    if (hasPending) {
+        alert("You have entered a material and quantity but forgot to click '+ Add'.\nPlease click '+ Add' to include it in the recipe before saving!");
+        return;
+    }
     if (typeof draftStages !== 'undefined') {
         let currentSum = 0;
-        draftStages.forEach(s => s.items.forEach(si => currentSum += (parseFloat(si.qty) || 0)));
+        draftStages.forEach(s => s.items.forEach(si => {
+            const it = items.find(x => String(x.id) === String(si.itemId));
+            if (it) currentSum += (parseFloat(si.qty) || 0);
+        }));
         if (Math.abs(currentSum - batch) > 0.001) {
             const diff = batch - currentSum;
-            alert(`Cannot create product. The recipe is not balanced!\n\nThe total material sum is ${currentSum.toFixed(2)} kg, but the Target Batch is ${batch} kg.`);
+            alert(`Cannot save product. The recipe is not balanced!\n\nThe total material sum is ${currentSum.toFixed(2)} kg, but the Target Batch is ${batch} kg.`);
             return;
         }
     }
     try {
-        const res = await fetch('/api/products', {
-            method: 'POST',
+        const url = currentEditingProductId ? `/api/products/${currentEditingProductId}` : '/api/products';
+        const method = currentEditingProductId ? 'PUT' : 'POST';
+        
+        const res = await fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name, batch, desc,
@@ -646,8 +695,23 @@ async function addProduct() {
             document.getElementById('prod-desc').value = '';
             document.getElementById('prod-density').value = '1';
             document.getElementById('prod-group').value = '';
-            renderProducts(name);
+            
+            // Reset edit mode
+            currentEditingProductId = null;
+            const titleEl = document.querySelector('#tab-create-product .page-title');
+            if (titleEl) titleEl.innerText = 'New Product';
+            const btnEl = document.querySelector('#tab-create-product .btn-primary');
+            if (btnEl) btnEl.innerText = '+ Create Product';
+            
+            const searchInput = document.getElementById('prod-master-search');
+            if (searchInput) {
+                searchInput.value = name;
+                searchInput.removeAttribute('data-id');
+            }
+            renderProducts();
             showTab('products');
+            
+            alert(method === 'PUT' ? "Product updated successfully!" : "Product created successfully!");
         } else {
             const data = await res.json();
             alert(data.error || "Failed to save product.");
@@ -679,13 +743,69 @@ async function syncProduct(p) {
 }
 
 let draftStages = [];
+let currentEditingProductId = null;
+
+function openCreateProductPage() {
+    currentEditingProductId = null;
+    
+    // Clear fields
+    document.getElementById('prod-group').value = '';
+    document.getElementById('prod-name').value = '';
+    document.getElementById('prod-batch').value = '100';
+    document.getElementById('prod-density').value = '1';
+    const descEl = document.getElementById('prod-desc');
+    if (descEl) descEl.value = '';
+    
+    draftStages = [];
+    renderDraftStages();
+    
+    // Reset labels
+    const titleEl = document.querySelector('#tab-create-product .page-title');
+    if (titleEl) titleEl.innerText = 'New Product';
+    
+    const btnEl = document.querySelector('#tab-create-product .btn-primary');
+    if (btnEl) btnEl.innerText = '+ Create Product';
+    
+    showTab('create-product');
+}
+
+function openEditProductPage(pid) {
+    const p = products.find(x => String(x.id) === String(pid));
+    if (!p) return;
+    
+    currentEditingProductId = p.id;
+    
+    // Populate fields
+    document.getElementById('prod-group').value = p.group_code || '';
+    document.getElementById('prod-name').value = p.name || '';
+    document.getElementById('prod-batch').value = p.batch || '100';
+    document.getElementById('prod-density').value = p.density || '1';
+    const descEl = document.getElementById('prod-desc');
+    if (descEl) descEl.value = p.desc || '';
+    
+    // Deep copy stages to avoid mutating until saved
+    draftStages = JSON.parse(JSON.stringify(p.stages || []));
+    renderDraftStages();
+    
+    // Change labels
+    const titleEl = document.querySelector('#tab-create-product .page-title');
+    if (titleEl) titleEl.innerText = 'Edit Product';
+    
+    const btnEl = document.querySelector('#tab-create-product .btn-primary');
+    if (btnEl) btnEl.innerText = 'Update Product';
+    
+    showTab('create-product');
+}
 
 function renderDraftStages() {
     const el = document.getElementById('draft-stages-wrap');
     if (el) {
         const p = { id: 'draft', stages: draftStages };
         let currentSum = 0;
-        draftStages.forEach(s => s.items.forEach(si => currentSum += (parseFloat(si.qty) || 0)));
+        draftStages.forEach(s => s.items.forEach(si => {
+            const it = items.find(x => String(x.id) === String(si.itemId));
+            if (it) currentSum += (parseFloat(si.qty) || 0);
+        }));
         const batch = parseFloat(document.getElementById('prod-batch').value) || 0;
         let statusHTML = '';
         if (batch > 0 && draftStages.some(s => s.items.length > 0)) {
@@ -701,15 +821,15 @@ function renderDraftStages() {
             : '<div style="font-size:13px;color:#bbb;padding:16px;text-align:center;border:2px dashed var(--slate2);border-radius:8px">No stages added yet. Click "+ Add Stage" to begin.</div>';
         el.innerHTML = statusHTML + stagesHTML;
 
-        // Initialize dropdowns for each stage
         draftStages.forEach(s => {
-            initSearchableDropdown(`si-sel-draft-${s.id}`, items, null, 'code');
+            const availableItems = items.filter(it => !s.items.some(si => si.itemId === it.id));
+            initSearchableDropdown(`si-sel-draft-${s.id}`, availableItems, null, 'code');
         });
     }
 }
 
 function getTargetProduct(pid) {
-    return pid === 'draft' ? { id: 'draft', stages: draftStages } : products.find(x => x.id === pid);
+    return pid === 'draft' ? { id: 'draft', stages: draftStages } : products.find(x => String(x.id) === String(pid));
 }
 
 function syncOrRender(pid, p) {
@@ -737,11 +857,21 @@ function deleteStage(pid, sid) {
     if (!confirm('Remove this stage?')) return;
     if (pid === 'draft') {
         draftStages = draftStages.filter(s => s.id !== sid);
+        draftStages.forEach((s, index) => {
+            if (/^Stage \d+$/.test(s.name)) {
+                s.name = 'Stage ' + (index + 1);
+            }
+        });
         renderDraftStages();
         return;
     }
-    const p = products.find(x => x.id === pid); if (!p) return;
+    const p = products.find(x => String(x.id) === String(pid)); if (!p) return;
     p.stages = p.stages.filter(s => s.id !== sid);
+    p.stages.forEach((s, index) => {
+        if (/^Stage \d+$/.test(s.name)) {
+            s.name = 'Stage ' + (index + 1);
+        }
+    });
     syncProduct(p);
 }
 function addStageItem(pid, sid) {
@@ -755,6 +885,20 @@ function addStageItem(pid, sid) {
 
     const itemId = parseInt(itemIdStr);
     const p = getTargetProduct(pid); if (!p) return;
+
+    // Check if adding this would exceed target batch
+    const batch = (pid === 'draft') ? parseFloat(document.getElementById('prod-batch').value) : p.batch;
+    let currentSum = 0;
+    p.stages.forEach(st => st.items.forEach(si => {
+        const it = items.find(x => String(x.id) === String(si.itemId));
+        if (it) currentSum += si.qty;
+    }));
+    
+    if (currentSum + qty > batch) {
+        alert(`Cannot add material. The total would exceed the target batch size of ${batch} kg!\nCurrent total is ${currentSum.toFixed(2)} kg.`);
+        return;
+    }
+
     const s = p.stages.find(x => x.id === sid);
     const existing = s.items.find(x => x.itemId === itemId);
     if (existing) { existing.qty += qty; } else { s.items.push({ itemId, qty }); }
@@ -788,12 +932,11 @@ function toggleProductDetails(pid) {
         if (icon) icon.style.transform = 'rotate(180deg)';
 
         // Re-init dropdowns when shown
-        const p = products.find(x => x.id === pid);
-        if (p) {
+        const p = products.find(x => String(x.id) === String(pid));
             p.stages.forEach(s => {
-                initSearchableDropdown(`si-sel-${p.id}-${s.id}`, items, null, 'code');
+                const availableItems = items.filter(it => !s.items.some(si => si.itemId === it.id));
+                initSearchableDropdown(`si-sel-${p.id}-${s.id}`, availableItems, null, 'code');
             });
-        }
     } else if (body) {
         body.style.display = 'none';
         if (icon) icon.style.transform = 'rotate(0deg)';
@@ -863,16 +1006,30 @@ function renderProducts() {
         return;
     }
     el.innerHTML = filtered.map(p => {
-        const totalIng = p.stages.reduce((a, s) => a + s.items.length, 0);
-        const formulationSum = p.stages.reduce((acc, s) => acc + s.items.reduce((accI, si) => accI + (parseFloat(si.qty) || 0), 0), 0);
+        const totalIng = p.stages.reduce((a, s) => {
+            const itemsArray = s.items ? (Array.isArray(s.items) ? s.items : [s.items]) : [];
+            return a + itemsArray.length;
+        }, 0);
+
+        const formulationSum = p.stages.reduce((acc, s) => {
+            const itemsArray = s.items ? (Array.isArray(s.items) ? s.items : [s.items]) : [];
+            return acc + itemsArray.reduce((accI, si) => {
+                const it = items.find(x => String(x.id) === String(si.itemId));
+                return it ? accI + (parseFloat(si.qty) || 0) : accI;
+            }, 0);
+        }, 0);
+
         const isBalanced = Math.abs(formulationSum - p.batch) < 0.001;
         const stagesHTML = p.stages.length ? p.stages.map((s, si) => renderStage(p, s, si)).join('') : `<div style="font-size:13px;color:#bbb;padding:6px 0 10px;text-align:center">No stages yet.</div>`;
         return `<div class="prod-card" id="prod-card-${p.id}" style="border:1px solid var(--slate2); border-radius:12px;">
-            <div class="prod-card-header" style="background:#fff; cursor:pointer;" onclick="toggleProductDetails(${p.id})">
+            <div class="prod-card-header" style="background:#fff; cursor:pointer;" onclick="openEditProductPage('${p.id}')">
                 <div style="flex:1">
                     <div class="prod-card-name">
                         <svg id="prod-icon-${p.id}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;color:var(--muted);"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         ${esc(p.name)}
+                    </div>
+                    <div style="font-size:11px; color:var(--muted); margin-top:4px; margin-left:22px;">
+                        Last Modified: ${new Date(p.modified_at).toLocaleString()}
                     </div>
                 </div>
             </div>
@@ -893,13 +1050,14 @@ function renderProducts() {
 
 function renderStage(p, s, stageIndex) {
     const pidStr = typeof p.id === 'string' ? `'${p.id}'` : p.id;
-    const itemRowsHTML = s.items.map(si => {
-        const it = items.find(x => x.id === si.itemId); if (!it) return '';
+    const itemsArray = s.items ? (Array.isArray(s.items) ? s.items : [s.items]) : [];
+    const itemRowsHTML = itemsArray.map(si => {
+        const it = items.find(x => String(x.id) === String(si.itemId));
         return `<div class="stage-item-row">
-            <div class="stage-item-name">${esc(it.name)}</div>
-            <span class="chip chip-blue">${it.unit}</span>
-            <input type="number" value="${si.qty}" min="0.01" step="0.01" style="width:90px;height:30px;" onchange="updateStageItemQty(${pidStr},${s.id},${it.id},this.value)">
-            <button class="btn btn-xs btn-danger" onclick="removeStageItem(${pidStr},${s.id},${it.id})" style="margin-left:auto">✕</button>
+            <div class="stage-item-name">${it ? esc(it.name) : 'Unknown'}</div>
+            <span class="chip chip-blue">${it ? it.unit : 'kg'}</span>
+            <input type="number" value="${si.qty}" min="0.01" step="0.01" style="width:90px;height:30px;" onchange="updateStageItemQty(${pidStr},${s.id},'${si.itemId}',this.value)">
+            <button class="btn btn-xs btn-danger" onclick="removeStageItem(${pidStr},${s.id},'${si.itemId}')" style="margin-left:auto">✕</button>
         </div>`;
     }).join('');
     const opts = items.map(it => `<option value="${it.id}">${esc(it.name)} (${it.unit})</option>`).join('');
@@ -915,7 +1073,7 @@ function renderStage(p, s, stageIndex) {
             </div>
             <button class="btn btn-xs btn-danger" onclick="deleteStage(${pidStr},${s.id})">Remove</button>
         </div>
-        <div class="stage-body">${s.items.length ? itemRowsHTML : '<div style="color:#ccc;text-align:center;">Empty</div>'}</div>
+        <div class="stage-body">${itemsArray.length ? itemRowsHTML : '<div style="color:#ccc;text-align:center;">Empty</div>'}</div>
         <div class="stage-add">
             <div class="dropdown-container" style="flex:1">
                 <input type="text" id="si-sel-${p.id}-${s.id}" placeholder="Search material..." autocomplete="off" style="width:100%;">
@@ -955,7 +1113,7 @@ function updateUserCalc() {
     const allIngredients = [];
     p.stages.forEach(s => {
         s.items.forEach(si => {
-            const it = items.find(x => x.id === si.itemId); if (!it) return;
+            const it = items.find(x => String(x.id) === String(si.itemId)); if (!it) return;
             const needed = si.qty * scale;
             const available = getStock(si.itemId).qty;
             const ep = effectivePrice(si.itemId, needed);
@@ -972,7 +1130,7 @@ function updateUserCalc() {
     const stockWarnings = allIngredients.filter(x => !x.sufficient);
     const stageSummaries = p.stages.map(s => {
         const stageItems = s.items.map(si => {
-            const it = items.find(x => x.id === si.itemId); if (!it) return null;
+            const it = items.find(x => String(x.id) === String(si.itemId)); if (!it) return null;
             const scaledQty = si.qty * scale;
             actualRawSum += scaledQty;
             return { name: it.name, unit: it.unit, code: it.code, scaledQty, itemId: si.itemId };
@@ -1004,21 +1162,18 @@ function updateUserCalc() {
     }).join('');
 
     el.innerHTML = `
-        <div class="stats-bar anim" style="background:var(--brand);">
+        <div class="stats-bar anim" style="background:var(--ink2);">
             <div style="display:flex;align-items:center;gap:12px">
-                <span class="chip chip-brand" style="background:#fff;color:var(--brand)">${esc(p.group_code || 'N/A')}</span>
+                <span class="chip chip-brand" style="background:#fff;color:var(--ink2)">${esc(p.group_code || 'N/A')}</span>
                 <strong style="font-size:16px">${esc(p.name)}</strong>
                 <span style="opacity:0.8;margin-left:8px">Target:</span> <strong style="font-size:16px">${qty} kg</strong>
             </div>
             <div style="display:flex;gap:8px">
-                <button class="btn" onclick="exportUserPDF()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.4);">
-                    Export Sheet
-                </button>
                 ${(currentRole === 'admin' || currentRole === 'manager') ? `
-                <button class="btn" onclick="consumeProductStock(this)" data-pid="${p.id}" data-qty="${qty}" data-name="${esc(p.name)}"
-                        ${stockWarnings.length > 0 ? 'disabled' : ''}
-                        style="background:${stockWarnings.length > 0 ? '#94a3b8' : 'var(--ink)'};color:#fff; border:1px solid ${stockWarnings.length > 0 ? '#94a3b8' : 'var(--ink)'};">
-                    ${stockWarnings.length > 0 ? 'Shortage: Fix Stock First' : 'Reduce Stock'}
+                <button class="btn btn-reduce-stock" onclick="consumeProductStock(this)" data-pid="${p.id}" data-qty="${qty}" data-name="${esc(p.name)}"
+                        style="background: #10b981; color: #fff;"
+                        ${stockWarnings.length > 0 ? 'disabled' : ''}>
+                    ${stockWarnings.length > 0 ? 'Shortage: Fix Stock First' : 'Generate Batch'}
                 </button>
                 ` : ''}
             </div>
@@ -1050,20 +1205,46 @@ async function renderHistory() {
         const res = await fetch('/api/batches');
         const batches = await res.json();
         if (!batches.length) {
-            tb.innerHTML = '<tr><td colspan="5" class="empty">No history found.</td></tr>';
+            tb.innerHTML = '<tr><td colspan="6" class="empty">No history found.</td></tr>';
             return;
         }
         tb.innerHTML = batches.map(b => {
             const dt = new Date(b.created_at).toLocaleString();
+            const status = b.status || 'pending';
+            const isCompleted = status === 'completed';
+            const statusChip = isCompleted ? `<span class="chip" style="background:#dcfce7;color:#15803d;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 11 15 16 9"></polyline></svg>Completed</span>` : `<span class="chip" style="background:#fee2e2;color:#b91c1c;font-weight:600;">Pending</span>`;
+            const completeBtn = (currentRole === 'manager' && !isCompleted) ? `<button class="btn btn-xs" onclick="completeBatch(${b.id})" style="background:#0f172a;color:#fff;margin-left:4px;font-weight:600;border:none;border-radius:4px;cursor:pointer;">Complete</button>` : '';
+            
             return `<tr>
                 <td><span class="chip chip-accent">${b.batch_number}</span></td>
                 <td>${dt}</td>
                 <td><strong>${esc(b.product_name)}</strong></td>
                 <td>${parseFloat(b.quantity).toFixed(2)} kg</td>
-                <td><button class="btn btn-xs btn-brand" onclick="reprintBatch(${b.id})">Print</button></td>
+                <td>${statusChip}</td>
+                <td>
+                    <button class="btn btn-xs" onclick="reprintBatch(${b.id})" style="background:#0f172a;color:#fff;font-weight:600;border:none;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:background 0.2s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='#0f172a'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Print</button>
+                    ${completeBtn}
+                </td>
             </tr>`;
         }).join('');
     } catch (e) { }
+}
+
+async function completeBatch(id) {
+    if (!confirm('Mark this batch as completed?')) return;
+    try {
+        const res = await fetch(`/api/batches/${id}/complete`, {
+            method: 'PUT'
+        });
+        const data = await res.json();
+        if (data.success) {
+            renderHistory();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        alert('Error completing batch');
+    }
 }
 
 async function reprintBatch(id) {
@@ -1139,7 +1320,7 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
             name: s.name,
             duration: s.duration || 0,
             items: s.items.map(si => {
-                const it = items.find(x => x.id === si.itemId);
+                const it = items.find(x => String(x.id) === String(si.itemId));
                 return { name: it ? it.name : 'Unknown', qty: si.qty * scale, unit: it ? it.unit : 'kg' };
             })
         }));
@@ -1164,12 +1345,15 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
         }).join('');
 
         return `
-            <tr style="background: #f8fafc;">
+            <tr style="background: #e2e8f0; border-top: 2px solid #cbd5e1;">
                 <td style="padding: 12px 10px; font-size: 14px; font-weight: 800; color: #1e293b;">
                     ${esc(s.name)} 
-                    <span style="font-size: 11px; color: #64748b; font-weight: 600; margin-left: 10px;">(${s.duration || 0} MINS)</span>
+                    <span style="font-size: 11px; color: #475569; font-weight: 700; margin-left: 10px; display: inline-flex; align-items: center;">
+                        <svg style="width:12px;height:12px;margin-right:4px;vertical-align:middle;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        ${s.duration || 0} MINS
+                    </span>
                 </td>
-                <td colspan="2" style="padding: 12px 10px; font-size: 13px; color: #64748b; text-align: right;">${s.items.length} materials</td>
+                <td colspan="2" style="padding: 12px 10px; font-size: 13px; color: #475569; text-align: right; font-weight: 600;">${s.items.length} materials</td>
             </tr>
             ${itemsRows}
         `;
@@ -1254,8 +1438,9 @@ async function consumeProductStock(btn) {
     const itemsToDeduct = [];
     const stagesData = p.stages.map(s => ({
         name: s.name,
+        duration: s.duration || 0,
         items: s.items.map(si => {
-            const it = items.find(x => x.id === si.itemId);
+            const it = items.find(x => String(x.id) === String(si.itemId));
             const scaledQty = si.qty * scale;
             itemsToDeduct.push({ itemId: si.itemId, qty: scaledQty });
             return { name: it ? it.name : 'Unknown', qty: scaledQty, unit: it ? it.unit : 'kg' };
@@ -1293,7 +1478,6 @@ async function consumeProductStock(btn) {
         }
 
         window.lastBatchNumber = batchData.batch_number;
-        alert(`Stock successfully reduced. Batch ${batchData.batch_number} created.`);
         await init();
         updateUserCalc();
         exportUserPDF(p, qty, stagesData, batchData.batch_number);
@@ -1350,7 +1534,7 @@ function calcEstimate() {
     const stageSummaries = p.stages.map(s => {
         let stageCost = 0;
         const stageItems = s.items.map(si => {
-            const it = items.find(x => x.id === si.itemId); if (!it) return null;
+            const it = items.find(x => String(x.id) === String(si.itemId)); if (!it) return null;
             const scaledQty = si.qty * scale;
             const unitPrice = effectivePrice(si.itemId, scaledQty);
             const cost = scaledQty * unitPrice;
@@ -1370,7 +1554,7 @@ function calcEstimate() {
 
     let litreData = null;
     if (kgPerLitre > 0) {
-        const totalLitres = qty / kgPerLitre;
+        const totalLitres = qtyLitres;
         // Cost per Litre = Total Cost / Total Litres
         // Also equivalent to (Total Cost / Qty) * Density
         const costPerLitre = totalCost / totalLitres;
@@ -1662,7 +1846,24 @@ function populateAllSelects() {
 // PURCHASES MODULE
 // ------------------------------------------
 function populatePurchSelect() {
-    initSearchableDropdown('purch-item-bulk', items, null, 'code');
+    initSearchableDropdown('purch-item-bulk', items, (it) => {
+        const codeInput = document.getElementById('purch-code-bulk');
+        if (codeInput) codeInput.value = it.code || '';
+    }, 'code');
+
+    const codeInput = document.getElementById('purch-code-bulk');
+    if (codeInput) {
+        codeInput.addEventListener('input', () => {
+            const code = codeInput.value.trim().toUpperCase();
+            if (!code) return;
+            const match = items.find(it => (it.code || '').toUpperCase() === code);
+            if (match) {
+                const itemInput = document.getElementById('purch-item-bulk');
+                itemInput.value = match.name;
+                itemInput.setAttribute('data-id', match.id);
+            }
+        });
+    }
 }
 
 async function renderPurchases() {
@@ -1671,17 +1872,47 @@ async function renderPurchases() {
     try {
         const res = await fetch('/api/purchases');
         const data = await res.json();
-        if (!data.length) {
+        
+        // Group by vendor/reference
+        const groupedPurchases = {};
+        data.forEach(p => {
+            const vendor = p.vendor || 'Unknown Vendor';
+            if (!groupedPurchases[vendor]) {
+                groupedPurchases[vendor] = {
+                    vendor: vendor,
+                    created_at: p.created_at,
+                    items: []
+                };
+            }
+            groupedPurchases[vendor].items.push({
+                name: p.items ? p.items.name : `RM ${p.itemId}`,
+                qty: parseFloat(p.qty),
+                price: parseFloat(p.price),
+                unit: p.items ? p.items.unit : 'kg'
+            });
+        });
+        
+        const purchasesSummary = Object.values(groupedPurchases);
+        currentPurchases = purchasesSummary;
+        
+        if (!purchasesSummary.length) {
             tb.innerHTML = '<tr><td colspan="5" class="empty">No purchases yet.</td></tr>';
             return;
         }
-        tb.innerHTML = data.map(p => `<tr>
-            <td>${new Date(p.created_at).toLocaleDateString()}</td>
-            <td><strong>${esc(p.items ? p.items.name : 'Unknown')}</strong> ${p.items && p.items.code ? `<span class="chip chip-blue">${esc(p.items.code)}</span>` : ''}</td>
-            <td>${parseFloat(p.qty).toFixed(2)} ${esc(p.items ? p.items.unit : '')}</td>
-            <td>Rs. ${parseFloat(p.price).toFixed(2)}</td>
-            <td>${esc(p.vendor || '—')}</td>
-        </tr>`).join('');
+        
+        tb.innerHTML = purchasesSummary.map((p, i) => {
+            const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+            const vendor = match ? match[1] : p.vendor;
+            const ref = match ? match[2] : '—';
+            
+            return `<tr onclick="showRecentPurchaseDetails(${i})" style="cursor:pointer;">
+                <td>${new Date(p.created_at).toLocaleDateString()}</td>
+                <td><strong>${esc(vendor)}</strong></td>
+                <td>${esc(ref)}</td>
+                <td>${p.items.length} items</td>
+                <td onclick="event.stopPropagation()"><button class="btn btn-xs btn-ghost" onclick="printRecentPurchase(${i})" style="display:inline-flex; align-items:center; gap:4px; font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Print</button></td>
+            </tr>`;
+        }).join('');
     } catch (e) { }
 }
 
@@ -1730,17 +1961,19 @@ function renderDraftPurchaseItems() {
 
 async function confirmBulkPurchase() {
     const vendor = document.getElementById('purch-vendor-bulk').value.trim();
+    const reference = document.getElementById('purch-ref-bulk') ? document.getElementById('purch-ref-bulk').value.trim() : '';
     if (!vendor) { alert("Enter Vendor Name."); return; }
     if (!draftPurchaseItems.length) return;
     try {
         const res = await fetch('/api/purchases', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(draftPurchaseItems.map(item => ({ ...item, vendor })))
+            body: JSON.stringify(draftPurchaseItems.map(item => ({ ...item, vendor, reference })))
         });
         if (res.ok) {
             draftPurchaseItems = [];
             document.getElementById('purch-vendor-bulk').value = '';
+            if (document.getElementById('purch-ref-bulk')) document.getElementById('purch-ref-bulk').value = '';
             renderDraftPurchaseItems();
             await init();
             renderPurchases();
@@ -1754,6 +1987,8 @@ async function renderDailyReport(date) {
     try {
         const res = await fetch('/api/reports/daily?date=' + date);
         const data = await res.json();
+        currentReportData = data;
+        currentReportDate = date;
         const pt = document.getElementById('rep-prod-tbody');
         const totalProduced = data.productions.reduce((a, b) => a + parseFloat(b.quantity), 0);
         document.getElementById('rep-total-prod').textContent = totalProduced.toFixed(1) + ' kg';
@@ -1764,16 +1999,31 @@ async function renderDailyReport(date) {
             <td>${p.quantity} kg</td>
         </tr>`).join('') || '<tr><td colspan="4" class="empty">No records.</td></tr>';
 
+        const mt = document.getElementById('rep-mod-tbody');
+        if (mt) {
+            mt.innerHTML = (data.modifications || []).map(m => `<tr>
+                <td>${new Date(m.created_at).toLocaleTimeString()}</td>
+                <td><strong>${esc(m.product_name)}</strong></td>
+                <td><span class="chip chip-blue">Updated</span></td>
+            </tr>`).join('') || '<tr><td colspan="3" class="empty">No records.</td></tr>';
+        }
+
         const put = document.getElementById('rep-purch-tbody');
-        const totalSpend = data.purchases.reduce((a, b) => a + (parseFloat(b.qty) * parseFloat(b.price)), 0);
+        const totalSpend = data.purchases.reduce((a, p) => a + p.items.reduce((acc, it) => acc + (it.qty * it.price), 0), 0);
         document.getElementById('rep-total-spend').textContent = 'Rs. ' + totalSpend.toLocaleString();
-        put.innerHTML = data.purchases.map(p => `<tr>
-            <td>${new Date(p.created_at).toLocaleTimeString()}</td>
-            <td><strong>${esc(p.items ? p.items.name : 'Unknown')}</strong></td>
-            <td>${p.qty} ${esc(p.items ? p.items.unit : '')}</td>
-            <td>Rs. ${(p.qty * p.price).toFixed(2)}</td>
-            <td>${esc(p.vendor || '—')}</td>
-        </tr>`).join('') || '<tr><td colspan="5" class="empty">No records.</td></tr>';
+        put.innerHTML = data.purchases.map((p, idx) => {
+            const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+            const vendor = match ? match[1] : p.vendor;
+            const ref = match ? match[2] : '—';
+            
+            return `<tr onclick="showPurchaseDetails(${idx})" style="cursor:pointer;">
+                <td>${new Date(p.created_at).toLocaleTimeString()}</td>
+                <td><strong>${esc(vendor)}</strong></td>
+                <td>${esc(ref)}</td>
+                <td>${p.items.length} items</td>
+                <td onclick="event.stopPropagation()"><button class="btn btn-xs btn-ghost" onclick="printReportPurchase(${idx})" style="display:inline-flex; align-items:center; gap:4px; font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Print</button></td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="5" class="empty">No records.</td></tr>';
 
         const ut = document.getElementById('rep-usage-tbody');
         if (!data.rmUsage || !data.rmUsage.length) {
@@ -1786,6 +2036,292 @@ async function renderDailyReport(date) {
             </tr>`).join('');
         }
     } catch (e) { }
+}
+
+function exportPurchasesPDF() {
+    if (!currentReportData) { alert("No report data to export."); return; }
+    const data = currentReportData;
+    const dateStr = currentReportDate || new Date().toISOString().split('T')[0];
+    const dateFormatted = new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const totalSpend = data.purchases.reduce((a, b) => a + b.total_amount, 0);
+
+    const purchasesHTML = data.purchases.map(p => `
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.vendor)}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.items)}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${p.total_amount.toFixed(2)}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="3" style="padding: 8px; text-align: center;">No records.</td></tr>';
+
+    const html = `
+        <html>
+        <head>
+            <title>Purchases Report - ${dateStr}</title>
+            <style>
+                body { font-family: sans-serif; color: #333; line-height: 1.4; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th { background: #f8fafc; text-align: left; padding: 8px; font-size: 12px; text-transform: uppercase; color: #64748b; }
+                .summary { display: flex; gap: 20px; margin-top: 15px; }
+                .sum-box { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; }
+                .sum-val { font-size: 18px; font-weight: 700; color: #1e293b; }
+                .sum-lbl { font-size: 11px; color: #64748b; text-transform: uppercase; }
+            </style>
+        </head>
+        <body>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                        <img src="${window.location.origin}/Roalux_PNG.png" style="height: 40px;">
+                        <div style="font-size: 28px; font-weight: 900; letter-spacing: -1px; color: #000;">MIXLAB</div>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Paint Recipe System</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 24px; font-weight: 800; color: #1e293b;">Purchases Report</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #64748b;">${dateFormatted}</div>
+                </div>
+            </div>
+            
+            <div style="height: 2px; background: #1e293b; margin-bottom: 20px;"></div>
+
+            <div class="summary">
+                <div class="sum-box">
+                    <div class="sum-val">Rs. ${totalSpend.toLocaleString()}</div>
+                    <div class="sum-lbl">Total Spend</div>
+                </div>
+            </div>
+
+            <table>
+                <thead><tr><th>Vendor</th><th>Materials</th><th style="text-align:right;">Value</th></tr></thead>
+                <tbody>${purchasesHTML}</tbody>
+            </table>
+        </body>
+        </html>
+    `;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
+}
+
+function printPurchaseSlip(p) {
+    const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+    const vendor = match ? match[1] : p.vendor;
+    const ref = match ? match[2] : '—';
+    
+    const dateFormatted = new Date(p.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    let total = 0;
+    
+    const itemsHTML = p.items.map(it => {
+        const sub = it.qty * it.price;
+        total += sub;
+        return `
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(it.name)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${it.qty.toFixed(2)} ${esc(it.unit)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${it.price.toFixed(2)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${sub.toFixed(2)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const html = `
+        <html>
+        <head>
+            <title>Purchase Slip - ${vendor}</title>
+            <style>
+                body { font-family: sans-serif; color: #333; line-height: 1.4; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th { background: #f8fafc; text-align: left; padding: 8px; font-size: 12px; text-transform: uppercase; color: #64748b; }
+            </style>
+        </head>
+        <body>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                        <img src="${window.location.origin}/Roalux_PNG.png" style="height: 40px;">
+                        <div style="font-size: 28px; font-weight: 900; letter-spacing: -1px; color: #000;">MIXLAB</div>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Paint Recipe System</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 24px; font-weight: 800; color: #1e293b;">Purchase Slip</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #64748b;">${dateFormatted}</div>
+                </div>
+            </div>
+            
+            <div style="height: 2px; background: #1e293b; margin-bottom: 20px;"></div>
+
+            <div style="margin-bottom: 15px; font-size: 14px; color: #475569;">
+                <div><strong>Vendor:</strong> ${esc(vendor)}</div>
+                <div><strong>Reference:</strong> ${esc(ref)}</div>
+            </div>
+
+            <table>
+                <thead><tr><th>Material</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead>
+                <tbody>${itemsHTML}</tbody>
+            </table>
+
+            <div style="margin-top: 20px; text-align: right; font-size: 16px; font-weight: 700;">
+                Grand Total: Rs. ${total.toFixed(2)}
+            </div>
+        </body>
+        </html>
+    `;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
+}
+
+function printReportPurchase(idx) {
+    if (!currentReportData || !currentReportData.purchases[idx]) return;
+    printPurchaseSlip(currentReportData.purchases[idx]);
+}
+
+function printRecentPurchase(idx) {
+    if (!currentPurchases || !currentPurchases[idx]) return;
+    printPurchaseSlip(currentPurchases[idx]);
+}
+
+function showPurchaseDetailsModal(p) {
+    const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+    const vendor = match ? match[1] : p.vendor;
+    const ref = match ? match[2] : '—';
+    
+    let total = 0;
+    const itemsHTML = p.items.map(it => {
+        const sub = it.qty * it.price;
+        total += sub;
+        return `<tr>
+            <td>${esc(it.name)}</td>
+            <td>${it.qty.toFixed(2)} ${esc(it.unit)}</td>
+            <td>Rs. ${it.price.toFixed(2)}</td>
+            <td>Rs. ${sub.toFixed(2)}</td>
+        </tr>`;
+    }).join('');
+
+    const modalHTML = `
+        <div id="purchase-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div class="card" style="width:500px; max-width:90%; max-height:80vh; overflow-y:auto; background:var(--white); border:1px solid var(--slate2); box-shadow:var(--shadow-xl);">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="card-title">Purchase Details</div>
+                    <button class="btn btn-xs btn-danger" onclick="closePurchaseModal()">✕</button>
+                </div>
+                <div style="padding:20px;">
+                    <div style="margin-bottom:15px; font-size:14px; color:var(--muted);">
+                        <div><strong>Vendor:</strong> ${esc(vendor)}</div>
+                        <div><strong>Reference:</strong> ${esc(ref)}</div>
+                        <div><strong>Time:</strong> ${new Date(p.created_at).toLocaleTimeString()}</div>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Material</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+                            <tbody>${itemsHTML}</tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:15px; text-align:right; font-weight:700; color:var(--brand);">
+                        Grand Total: Rs. ${total.toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const div = document.createElement('div');
+    div.id = 'purchase-modal-container';
+    div.innerHTML = modalHTML;
+    document.body.appendChild(div);
+}
+
+function showPurchaseDetails(idx) {
+    if (!currentReportData || !currentReportData.purchases[idx]) return;
+    showPurchaseDetailsModal(currentReportData.purchases[idx]);
+}
+
+function showRecentPurchaseDetails(idx) {
+    if (!currentPurchases || !currentPurchases[idx]) return;
+    showPurchaseDetailsModal(currentPurchases[idx]);
+}
+
+function closePurchaseModal() {
+    const el = document.getElementById('purchase-modal-container');
+    if (el) el.remove();
+}
+function exportPurchaseSlipPDF() {
+    const vendor = document.getElementById('purch-vendor-bulk').value.trim();
+    const reference = document.getElementById('purch-ref-bulk') ? document.getElementById('purch-ref-bulk').value.trim() : '';
+    
+    if (!vendor) { alert("Enter Vendor Name."); return; }
+    if (!draftPurchaseItems.length) { alert("No items in the purchase list."); return; }
+    
+    const dateFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    let total = 0;
+    
+    const itemsHTML = draftPurchaseItems.map(p => {
+        const sub = p.qty * p.price;
+        total += sub;
+        return `
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.name)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${p.qty.toFixed(2)} ${esc(p.unit)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${p.price.toFixed(2)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${sub.toFixed(2)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const html = `
+        <html>
+        <head>
+            <title>Purchase Slip - ${vendor}</title>
+            <style>
+                body { font-family: sans-serif; color: #333; line-height: 1.4; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th { background: #f8fafc; text-align: left; padding: 8px; font-size: 12px; text-transform: uppercase; color: #64748b; }
+            </style>
+        </head>
+        <body>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                        <img src="${window.location.origin}/Roalux_PNG.png" style="height: 40px;">
+                        <div style="font-size: 28px; font-weight: 900; letter-spacing: -1px; color: #000;">MIXLAB</div>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Paint Recipe System</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 24px; font-weight: 800; color: #1e293b;">Purchase Slip</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #64748b;">${dateFormatted}</div>
+                </div>
+            </div>
+            
+            <div style="height: 2px; background: #1e293b; margin-bottom: 20px;"></div>
+
+            <div style="margin-bottom: 15px; font-size: 14px; color: #475569;">
+                <div><strong>Vendor:</strong> ${esc(vendor)}</div>
+                ${reference ? `<div><strong>Reference:</strong> ${esc(reference)}</div>` : ''}
+            </div>
+
+            <table>
+                <thead><tr><th>Material</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead>
+                <tbody>${itemsHTML}</tbody>
+            </table>
+
+            <div style="margin-top: 20px; text-align: right; font-size: 16px; font-weight: 700;">
+                Grand Total: Rs. ${total.toFixed(2)}
+            </div>
+        </body>
+        </html>
+    `;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
 }
 
 function initSplitSearchDropdowns(groupId, productId, data, onSelect, codeKey = 'group_code') {
