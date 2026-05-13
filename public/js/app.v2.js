@@ -4,7 +4,7 @@ let items = [];       // raw materials with price info (admin sets base price)
 let products = [];    // product recipes
 let stocks = {};      // { itemId: { qty: number, threshold: number, avgPrice: number } }
 let draftPurchaseItems = [];
-let currentRole = null; // 'manager' | 'admin'
+let currentRole = localStorage.getItem('roaluxRole') || null; // 'manager' | 'admin'
 let selectedLoginRole = null;
 let currentReportData = null;
 let currentReportDate = null;
@@ -58,6 +58,7 @@ async function init() {
         console.log("Current role:", currentRole);
 
         if (currentRole) {
+            applyRole(currentRole);
             updateUserCalc();
         } else {
             showTab('login');
@@ -77,6 +78,7 @@ function openLoginPortal() {
         // Logout
         currentRole = null;
         selectedLoginRole = null;
+        localStorage.removeItem('roaluxRole');
         applyRole(null);
         showTab('login');
         document.getElementById('login-toggle-btn').textContent = 'SIGN IN';
@@ -132,6 +134,7 @@ function doLogin() {
     const pw = document.getElementById('admin-pw').value;
     if (pw === PASSWORDS[selectedLoginRole]) {
         currentRole = selectedLoginRole;
+        localStorage.setItem('roaluxRole', selectedLoginRole);
         applyRole(selectedLoginRole);
         showTab('user-calc');
     } else {
@@ -145,6 +148,7 @@ function doLogin() {
 function logout() {
     currentRole = null;
     selectedLoginRole = null;
+    localStorage.removeItem('roaluxRole');
     const pwEl = document.getElementById('admin-pw');
     if (pwEl) pwEl.value = '';
     applyRole(null);
