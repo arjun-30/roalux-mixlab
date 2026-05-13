@@ -346,7 +346,12 @@ app.post('/api/batches', async (req, res) => {
         // Get the next sequential ID
         const [rows] = await pool.query('SELECT MAX(id) as maxId FROM production_history');
         const nextId = (rows[0].maxId || 0) + 1;
-        const batch_number = req.body.batch_number || `B-${String(nextId).padStart(4, '0')}`;
+        
+        const day = new Date().getDate();
+        const dayStr = String(day).padStart(2, '0');
+        const seqStr = String(nextId).padStart(2, '0');
+        
+        const batch_number = req.body.batch_number || `${seqStr}${dayStr}`;
         
         await pool.query(
             'INSERT INTO production_history (product_id, product_name, quantity, batch_number, stages_data) VALUES (?, ?, ?, ?, ?)',
