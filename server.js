@@ -363,6 +363,15 @@ app.post('/api/batches', async (req, res) => {
     }
 });
 
+app.get('/api/batches', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM production_history ORDER BY created_at DESC');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/api/reports/daily', async (req, res) => {
     const dateStr = req.query.date || new Date().toISOString().split('T')[0];
     const start = dateStr + " 00:00:00";
