@@ -3,106 +3,204 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const port = 3000;
 
 app.use(cors());
 app.use(express.json());
-// Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Root route
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Initialize Database
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const mysql = require('mysql2/promise');
+
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+async function initDb() {
+    try {
+        const connection = await pool.getConnection();
+        console.log('Database connected successfully.');
+        
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS items (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                code VARCHAR(255),
+                name VARCHAR(255) NOT NULL,
+                unit VARCHAR(50) NOT NULL,
+                price DOUBLE DEFAULT 0,
+                cat VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS products (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                batch DOUBLE DEFAULT 0,
+                \`desc\` TEXT,
+                density DOUBLE DEFAULT 0,
+                group_code VARCHAR(255),
+                color VARCHAR(255),
+                stages TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS stocks (
+                itemId BIGINT PRIMARY KEY,
+                qty DOUBLE DEFAULT 0,
+                avgPrice DOUBLE DEFAULT 0,
+                threshold DOUBLE DEFAULT 0
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS production_history (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                product_id BIGINT,
+                product_name VARCHAR(255) NOT NULL,
+                quantity DOUBLE NOT NULL,
+                batch_number VARCHAR(255) NOT NULL,
+                stages_data TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS stock_batches (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                itemId BIGINT,
+                qty DOUBLE NOT NULL,
+                price DOUBLE NOT NULL,
+                vendor VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        console.log('Tables checked/created successfully.');
+        connection.release();
+    } catch (error) {
+        console.error('Database initialization error:', error);
+    }
+}
+
+initDb();
+
+// FIFO Stock Consumption Helper
+async function consumeStockFifo(itemId, qtyToDeduct) {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        const [batches] = await connection.query(
+            'SELECT id, qty, price FROM stock_batches WHERE itemId = ? AND qty > 0 ORDER BY created_at ASC',
+            [itemId]
+        );
+        
+        let remainingQty = qtyToDeduct;
+        let totalCost = 0;
+        
+        for (const batch of batches) {
+            if (remainingQty <= 0) break;
+            
+            const deductQty = Math.min(remainingQty, batch.qty);
+            totalCost += deductQty * batch.price;
+            
+            await connection.query(
+                'UPDATE stock_batches SET qty = qty - ? WHERE id = ?',
+                [deductQty, batch.id]
+            );
+            
+            remainingQty -= deductQty;
+        }
+        
+        await connection.query(
+            'UPDATE stocks SET qty = qty - ? WHERE itemId = ?',
+            [qtyToDeduct, itemId]
+        );
+        
+        await connection.commit();
+        return totalCost;
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+}
 
 // API Endpoints - Items
 app.get('/api/items', async (req, res) => {
-    console.log('GET /api/items');
-    const { data, error } = await supabase.from('items').select('*');
-    if (error) {
-        console.error('Supabase Error (GET items):', error);
-        return res.status(500).json({ error: error.message });
+    try {
+        const [rows] = await pool.query('SELECT * FROM items');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 app.post('/api/items', async (req, res) => {
-    console.log('POST /api/items', req.body);
     const { name, unit, price, cat, code } = req.body;
-    const { data: existing, error: checkErr } = await supabase
-        .from('items')
-        .select('id')
-        .ilike('name', name);
+    try {
+        const [existing] = await pool.query('SELECT id FROM items WHERE name LIKE ?', [name]);
+        if (existing.length > 0) {
+            return res.status(400).json({ error: `Material "${name}" already exists.` });
+        }
 
-    if (checkErr) {
-        console.error('Check Error:', checkErr);
-        return res.status(500).json({ error: 'Database check failed' });
+        const [result] = await pool.query(
+            'INSERT INTO items (name, unit, price, cat, code) VALUES (?, ?, ?, ?, ?)',
+            [name, unit, price, cat, code]
+        );
+        res.json({ id: result.insertId });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-
-    if (existing && existing.length > 0) {
-        return res.status(400).json({ error: `Material "${name}" already exists.` });
-    }
-
-    const { data, error } = await supabase
-        .from('items')
-        .insert([{ name, unit, price, cat, code }])
-        .select();
-    if (error) {
-        console.error('Supabase Error (POST items):', error);
-        return res.status(500).json({ error: error.message });
-    }
-    res.json({ id: data[0].id });
 });
 
 app.delete('/api/items/:id', async (req, res) => {
-    console.log('DELETE /api/items', req.params.id);
-    const { error } = await supabase
-        .from('items')
-        .delete()
-        .eq('id', parseInt(req.params.id));
-    if (error) {
-        console.error('Supabase Error (DELETE items):', error);
-        return res.status(500).json({ error: error.message });
+    try {
+        await pool.query('DELETE FROM items WHERE id = ?', [req.params.id]);
+        res.json({ deleted: 1 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    res.json({ deleted: 1 });
 });
 
 app.put('/api/items/:id', async (req, res) => {
-    console.log('PUT /api/items', req.params.id, req.body);
     const { name, unit, price, cat, code } = req.body;
-    const { error } = await supabase
-        .from('items')
-        .update({ name, unit, price, cat, code })
-        .eq('id', parseInt(req.params.id));
-    if (error) {
-        console.error('Supabase Error (PUT items):', error);
-        return res.status(500).json({ error: error.message });
+    try {
+        await pool.query(
+            'UPDATE items SET name = ?, unit = ?, price = ?, cat = ?, code = ? WHERE id = ?',
+            [name, unit, price, cat, code, req.params.id]
+        );
+        res.json({ updated: 1 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    res.json({ updated: 1 });
 });
 
 // API Endpoints - Products
 app.get('/api/products', async (req, res) => {
-    console.log('GET /api/products');
     try {
-        const [prodRes, modRes] = await Promise.all([
-            supabase.from('products').select('*'),
-            supabase.from('production_history').select('product_id, created_at').eq('batch_number', 'MOD').order('created_at', { ascending: false })
-        ]);
+        const [prodRows] = await pool.query('SELECT * FROM products');
+        const [modRows] = await pool.query("SELECT product_id, created_at FROM production_history WHERE batch_number = 'MOD' ORDER BY created_at DESC");
 
-        if (prodRes.error) throw prodRes.error;
-        if (modRes.error) throw modRes.error;
-
-        const products = prodRes.data.map(p => {
-            const latestMod = modRes.data.find(m => String(m.product_id) === String(p.id));
+        const products = prodRows.map(p => {
+            const latestMod = modRows.find(m => String(m.product_id) === String(p.id));
             return { 
                 ...p, 
                 stages: JSON.parse(p.stages || '[]'),
@@ -111,283 +209,184 @@ app.get('/api/products', async (req, res) => {
         });
         res.json(products);
     } catch (error) {
-        console.error('Supabase Error (GET products):', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/products', async (req, res) => {
-    console.log('POST /api/products', req.body.name);
     const { name, batch, desc, density, group_code, color, stages } = req.body;
     const stagesStr = JSON.stringify(stages || []);
-    // Check for duplicates in same group (case-insensitive)
-    const { data: existing, error: checkErr } = await supabase
-        .from('products')
-        .select('id')
-        .ilike('name', name)
-        .eq('group_code', group_code);
-
-    if (checkErr) {
-        console.error('Check Error:', checkErr);
-        return res.status(500).json({ error: 'Database check failed' });
-    }
-
-    if (existing && existing.length > 0) {
-        return res.status(400).json({ error: `Product "${name}" already exists in group "${group_code}".` });
-    }
-
-    const { data, error } = await supabase
-        .from('products')
-        .insert([{ name, batch, desc, density, group_code, color, stages: stagesStr }])
-        .select();
-    if (error) {
-        console.error('Supabase Error (POST products):', error);
-        return res.status(500).json({ error: error.message });
-    }
-    res.json({ id: data[0].id });
-});
-
-app.put('/api/products/:id', async (req, res) => {
-    console.log('PUT /api/products', req.params.id);
-    const { name, batch, desc, density, group_code, color, stages } = req.body;
-    const stagesStr = JSON.stringify(stages || []);
-    
     try {
-        // 1. Check for duplicates in same group (excluding current product)
-        const { data: existing, error: checkErr } = await supabase
-            .from('products')
-            .select('id')
-            .ilike('name', name)
-            .eq('group_code', group_code)
-            .neq('id', req.params.id);
-
-        if (checkErr) throw checkErr;
-        if (existing && existing.length > 0) {
+        const [existing] = await pool.query('SELECT id FROM products WHERE name LIKE ? AND group_code = ?', [name, group_code]);
+        if (existing.length > 0) {
             return res.status(400).json({ error: `Product "${name}" already exists in group "${group_code}".` });
         }
 
-        // 2. Fetch current product to compare changes
-        const { data: currentProduct, error: fetchErr } = await supabase
-            .from('products')
-            .select('*')
-            .eq('id', req.params.id)
-            .single();
+        const [result] = await pool.query(
+            'INSERT INTO products (name, batch, \`desc\`, density, group_code, color, stages) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [name, batch, desc, density, group_code, color, stagesStr]
+        );
+        res.json({ id: result.insertId });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/products/:id', async (req, res) => {
+    const { name, batch, desc, density, group_code, color, stages } = req.body;
+    const stagesStr = JSON.stringify(stages || []);
+    try {
+        const [oldProd] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
         
-        if (fetchErr) throw fetchErr;
+        await pool.query(
+            'UPDATE products SET name = ?, batch = ?, \`desc\` = ?, density = ?, group_code = ?, color = ?, stages = ? WHERE id = ?',
+            [name, batch, desc, density, group_code, color, stagesStr, req.params.id]
+        );
 
-        // 3. Update product
-        const { error: updErr } = await supabase
-            .from('products')
-            .update({ name, batch, desc, density, group_code, color: color || null, stages: stagesStr })
-            .eq('id', req.params.id);
-        
-        if (updErr) throw updErr;
-
-        // 4. Generate modification details
-        const { data: itemsData } = await supabase.from('items').select('id, name');
-        const itemMap = {};
-        if (itemsData) itemsData.forEach(it => itemMap[it.id] = it.name);
-
-        const oldItemsMap = {};
-        const oldStages = JSON.parse(currentProduct.stages || '[]');
-        oldStages.forEach(s => {
-            if (s.items) {
-                const itemsArray = Array.isArray(s.items) ? s.items : [s.items];
-                itemsArray.forEach(i => {
-                    oldItemsMap[i.itemId] = (oldItemsMap[i.itemId] || 0) + parseFloat(i.qty || 0);
-                });
-            }
-        });
-
-        const newItemsMap = {};
-        (stages || []).forEach(s => {
-            if (s.items) {
-                const itemsArray = Array.isArray(s.items) ? s.items : [s.items];
-                itemsArray.forEach(i => {
-                    newItemsMap[i.itemId] = (newItemsMap[i.itemId] || 0) + parseFloat(i.qty || 0);
-                });
-            }
-        });
-
-        const changes = [];
-        
-        // Check for removed or changed items
-        Object.keys(oldItemsMap).forEach(itemId => {
-            const oldQty = oldItemsMap[itemId];
-            const newQty = newItemsMap[itemId];
-            const rmName = itemMap[itemId] || `RM ${itemId}`;
-
-            if (newQty === undefined) {
-                changes.push(`Removed ${rmName}`);
-            } else if (Math.abs(newQty - oldQty) > 0.001) {
-                const action = newQty > oldQty ? "Increased" : "Reduced";
-                changes.push(`${action} ${rmName} qty`);
-            }
-        });
-
-        // Check for added items
-        Object.keys(newItemsMap).forEach(itemId => {
-            if (oldItemsMap[itemId] === undefined) {
-                const rmName = itemMap[itemId] || `RM ${itemId}`;
-                changes.push(`Added ${rmName}`);
-            }
-        });
-
-        const details = changes.join(', ');
-        const logName = `[MODIFIED] ${name}${details ? ` (${details})` : ''}`;
-
-        // 5. Log modification to daily report
-        const { error: logError } = await supabase
-            .from('production_history')
-            .insert([{
-                product_id: req.params.id,
-                product_name: logName,
-                quantity: 0,
-                batch_number: 'MOD',
-                stages_data: '[]'
-            }]);
-        
-        if (logError) console.error('Failed to log product modification:', logError);
+        // Log modification if needed
+        if (oldProd.length > 0) {
+            const oldStages = JSON.parse(oldProd[0].stages || '[]');
+            const newStages = stages || [];
+            // Simple log for now
+            await pool.query(
+                'INSERT INTO production_history (product_id, product_name, quantity, batch_number, stages_data) VALUES (?, ?, ?, ?, ?)',
+                [req.params.id, `[MODIFIED] ${name}`, 0, 'MOD', '[]']
+            );
+        }
 
         res.json({ updated: 1 });
     } catch (error) {
-        console.error('Supabase Error (PUT products):', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
-    console.log('DELETE /api/products', req.params.id);
-    const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', req.params.id);
-    if (error) {
-        console.error('Supabase Error (DELETE products):', error);
-        return res.status(500).json({ error: error.message });
+    try {
+        await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+        res.json({ deleted: 1 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    res.json({ deleted: 1 });
 });
 
 // API Endpoints - Stocks
 app.get('/api/stocks', async (req, res) => {
-    console.log('GET /api/stocks');
     try {
-        const [stocksRes, batchesRes] = await Promise.all([
-            supabase.from('stocks').select('*'),
-            supabase.from('stock_batches').select('*').gt('qty', 0)
-        ]);
-
-        if (stocksRes.error) throw stocksRes.error;
-        if (batchesRes.error) throw batchesRes.error;
-
-        const stockMap = {};
-        stocksRes.data.forEach(s => {
-            s.batches = batchesRes.data
-                .filter(b => b.itemId === s.itemId)
-                .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-            stockMap[s.itemId] = s;
-        });
-        res.json(stockMap);
+        const [stocks] = await pool.query('SELECT * FROM stocks');
+        const [batches] = await pool.query('SELECT * FROM stock_batches WHERE qty > 0');
+        res.json({ stocks, batches });
     } catch (error) {
-        console.error('Supabase Error (GET stocks):', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.post('/api/stocks', async (req, res) => {
-    console.log('POST /api/stocks', req.body);
-    const { itemId, qty, avgPrice, threshold } = req.body;
-    const { data, error } = await supabase
-        .from('stocks')
-        .upsert({ itemId, qty, avgPrice, threshold })
-        .select();
-    if (error) {
-        console.error('Supabase Error (POST stocks):', error);
-        return res.status(500).json({ error: error.message });
+app.post('/api/purchases', async (req, res) => {
+    const payload = req.body; // Array of { itemId, qty, price, vendor, reference }
+    try {
+        for (const item of payload) {
+            const { itemId, qty, price, vendor, reference } = item;
+            
+            // Insert into stock_batches
+            await pool.query(
+                'INSERT INTO stock_batches (itemId, qty, price, vendor) VALUES (?, ?, ?, ?)',
+                [itemId, qty, price, vendor]
+            );
+
+            // Update stocks summary
+            const [current] = await pool.query('SELECT qty, avgPrice FROM stocks WHERE itemId = ?', [itemId]);
+            if (current.length > 0) {
+                const newQty = current[0].qty + qty;
+                const newAvg = ((current[0].qty * current[0].avgPrice) + (qty * price)) / newQty;
+                await pool.query(
+                    'UPDATE stocks SET qty = ?, avgPrice = ? WHERE itemId = ?',
+                    [newQty, newAvg, itemId]
+                );
+            } else {
+                await pool.query(
+                    'INSERT INTO stocks (itemId, qty, avgPrice) VALUES (?, ?, ?)',
+                    [itemId, qty, price]
+                );
+            }
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    res.json(data[0]);
 });
 
 app.post('/api/stocks/consume', async (req, res) => {
-    console.log('POST /api/stocks/consume', req.body);
     const { items: consumeItems } = req.body; // Array of { itemId, qty }
-    
     try {
         const results = [];
         for (const item of consumeItems) {
             const { itemId, qty } = item;
-            
-            // Try to use FIFO RPC function
-            const { data: cost, error: rpcError } = await supabase.rpc('consume_stock_fifo', {
-                p_item_id: itemId,
-                p_qty_to_deduct: qty
-            });
-
-            if (rpcError) {
-                console.warn(`RPC FIFO failed for item ${itemId}, falling back to basic deduction:`, rpcError.message);
-                // Fallback: Simple deduction from main stocks table (no batch tracking)
-                const { data: current, error: fetchErr } = await supabase.from('stocks').select('qty, avgPrice, threshold').eq('itemId', itemId).maybeSingle();
-                if (!fetchErr && current) {
-                    await supabase.from('stocks').update({ qty: Math.max(0, current.qty - qty) }).eq('itemId', itemId);
-                }
-                results.push({ itemId, qty, fallback: true });
-            } else {
-                results.push({ itemId, qty, cost });
-            }
+            const cost = await consumeStockFifo(itemId, qty);
+            results.push({ itemId, qty, cost });
         }
         res.json({ success: true, results });
     } catch (error) {
-        console.error('Supabase Error (POST stocks/consume):', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// API Endpoints - Production History
-app.get('/api/batches', async (req, res) => {
-    console.log('GET /api/batches');
-    const { data, error } = await supabase
-        .from('production_history')
-        .select('*')
-        .neq('batch_number', 'MOD')
-        .order('created_at', { ascending: false });
-    if (error) {
-        console.error('Supabase Error (GET batches):', error);
-        return res.status(500).json({ error: error.message });
+app.post('/api/batches', async (req, res) => {
+    const { product_id, product_name, quantity, batch_number, stages_data } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO production_history (product_id, product_name, quantity, batch_number, stages_data) VALUES (?, ?, ?, ?, ?)',
+            [product_id, product_name, quantity, batch_number, JSON.stringify(stages_data)]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 app.get('/api/reports/daily', async (req, res) => {
     const dateStr = req.query.date || new Date().toISOString().split('T')[0];
-    
-    // Set range for the full day in local time
-    const start = new Date(dateStr + "T00:00:00");
-    const end = new Date(dateStr + "T23:59:59");
+    const start = dateStr + " 00:00:00";
+    const end = dateStr + " 23:59:59";
 
     try {
-        const [prodRes, purchRes] = await Promise.all([
-            supabase.from('production_history').select('*').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
-            supabase.from('stock_batches').select('*, items(name, unit)').gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
-        ]);
+        const [productions] = await pool.query(
+            'SELECT * FROM production_history WHERE created_at BETWEEN ? AND ?',
+            [start, end]
+        );
 
-        if (prodRes.error) throw prodRes.error;
-        if (purchRes.error) throw purchRes.error;
+        const [purchases] = await pool.query(
+            'SELECT sb.*, i.name, i.unit FROM stock_batches sb JOIN items i ON sb.itemId = i.id WHERE sb.created_at BETWEEN ? AND ?',
+            [start, end]
+        );
 
-        // Calculate aggregated RM Usage and separate modifications
-        const rmUsage = {};
-        const productions = [];
-        const modifications = [];
-
-        prodRes.data.forEach(batch => {
-            if (batch.batch_number === 'MOD') {
-                modifications.push(batch);
-                return; // Skip calculating usage for modifications
+        // Group purchases by vendor
+        const groupedPurchases = {};
+        purchases.forEach(p => {
+            const vendor = p.vendor || 'Unknown Vendor';
+            if (!groupedPurchases[vendor]) {
+                groupedPurchases[vendor] = { vendor, created_at: p.created_at, items: [] };
             }
-            productions.push(batch);
+            groupedPurchases[vendor].items.push({
+                name: p.name,
+                qty: p.qty,
+                price: p.price,
+                unit: p.unit
+            });
+        });
+
+        // Calculate aggregated RM Usage
+        const rmUsage = {};
+        const prods = [];
+        const mods = [];
+
+        productions.forEach(batch => {
+            if (batch.batch_number === 'MOD') {
+                mods.push(batch);
+                return;
+            }
+            prods.push(batch);
 
             let stages = [];
-            try { stages = typeof batch.stages_data === 'string' ? JSON.parse(batch.stages_data) : (batch.stages_data || []); } catch(e) {}
+            try { stages = JSON.parse(batch.stages_data || '[]'); } catch(e) {}
             stages.forEach(stage => {
                 stage.items.forEach(item => {
                     const key = item.name;
@@ -397,270 +396,15 @@ app.get('/api/reports/daily', async (req, res) => {
             });
         });
 
-        const groupedPurchases = {};
-        purchRes.data.forEach(p => {
-            const vendor = p.vendor || 'Unknown Vendor';
-            if (!groupedPurchases[vendor]) {
-                groupedPurchases[vendor] = {
-                    vendor: vendor,
-                    created_at: p.created_at,
-                    items: []
-                };
-            }
-            groupedPurchases[vendor].items.push({
-                name: p.items ? p.items.name : `RM ${p.itemId}`,
-                qty: parseFloat(p.qty),
-                price: parseFloat(p.price),
-                unit: p.items ? p.items.unit : 'kg'
-            });
-        });
-
-        const purchasesSummary = Object.values(groupedPurchases);
-
         res.json({
-            productions: productions,
-            purchases: purchasesSummary,
+            productions: prods,
+            purchases: Object.values(groupedPurchases),
             rmUsage: Object.entries(rmUsage).map(([name, data]) => ({ name, ...data })),
-            modifications: modifications
+            modifications: mods
         });
     } catch (error) {
-        console.error('Report Error:', error);
         res.status(500).json({ error: error.message });
     }
-});
-
-app.get('/api/batches/next-number', async (req, res) => {
-    const { product_id } = req.query;
-    try {
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-
-        const { data: todayBatches, error: countError } = await supabase
-            .from('production_history')
-            .select('id')
-            .gte('created_at', startOfDay.toISOString());
-
-        if (countError) throw countError;
-
-        const nextNum = (todayBatches ? todayBatches.length : 0) + 1;
-        const day = new Date().getDate();
-        
-        // Return ONLY numbers as requested: [NextNum][Day] or just [NextNum]
-        // But keep it consistent with the POST logic if possible, 
-        // OR follow "only be numbers" strictly.
-        // User said: "batch number shd only be numbers no prefix"
-        const batch_number = `${String(nextNum).padStart(2, '0')}${String(day).padStart(2, '0')}`;
-        res.json({ batch_number });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/batches', async (req, res) => {
-    console.log('POST /api/batches');
-    const { product_id, product_name, quantity, stages_data } = req.body;
-
-    try {
-        // Calculate Batch Number: [Counter][Day]
-        // Reset counter daily: count batches created today
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-
-        // Using a more robust count query
-        const { data: todayBatches, error: countError } = await supabase
-            .from('production_history')
-            .select('id')
-            .gte('created_at', startOfDay.toISOString());
-
-        if (countError) throw countError;
-
-        const nextNum = (todayBatches ? todayBatches.length : 0) + 1;
-        const day = new Date().getDate();
-        const batch_number = `${String(nextNum).padStart(2, '0')}${String(day).padStart(2, '0')}`;
-
-        const { data, error } = await supabase
-            .from('production_history')
-            .insert([{
-                product_id,
-                product_name,
-                quantity,
-                batch_number,
-                stages_data: JSON.stringify(stages_data),
-                // We'll try to save group_code if the column exists, 
-                // but since we haven't confirmed schema change, we'll skip for now 
-                // and just rely on the batch_number containing it.
-            }])
-            .select();
-
-        if (error) throw error;
-        console.log('Batch Created:', data[0]);
-        res.json(data[0]);
-    } catch (error) {
-        console.error('Supabase Error (POST batches):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.put('/api/batches/:id/complete', async (req, res) => {
-    console.log('PUT /api/batches/:id/complete', req.params.id);
-    const { error } = await supabase
-        .from('production_history')
-        .update({ status: 'completed' })
-        .eq('id', req.params.id);
-    
-    if (error) {
-        console.error('Supabase Error (PUT batches):', error);
-        return res.status(500).json({ error: error.message });
-    }
-    res.json({ success: true });
-});
-
-// API Endpoints - Consume Stock
-app.post('/api/stocks/consume', async (req, res) => {
-    const { productId, qty, ingredients } = req.body;
-    if (!productId || !qty || !ingredients || !ingredients.length) {
-        return res.status(400).json({ error: 'Missing required data' });
-    }
-    
-    try {
-        // We need to fetch current stocks to reduce them
-        const { data: stocks, error: stockFetchError } = await supabase
-            .from('stocks')
-            .select('*');
-            
-        if (stockFetchError) throw stockFetchError;
-        
-        // Prepare updates
-        for (const ing of ingredients) {
-            const currentStock = stocks.find(s => s.itemId == ing.itemId);
-            if (!currentStock) throw new Error(`Stock not found for item ${ing.itemId}`);
-            
-            const newQty = Math.max(0, parseFloat(currentStock.qty) - parseFloat(ing.needed));
-            
-            const { error: updError } = await supabase
-                .from('stocks')
-                .update({ qty: newQty })
-                .eq('itemId', ing.itemId);
-                
-            if (updError) throw updError;
-        }
-        
-        // Optionally, log this production event (re-use /api/batches logic if needed, but client calls POST /api/batches explicitly)
-        // Note: Client calls /api/batches first, then /api/stocks/consume.
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Consume Stock Error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// API Endpoints - Purchases
-app.get('/api/purchases', async (req, res) => {
-    const { data, error } = await supabase
-        .from('stock_batches')
-        .select(`
-            *,
-            items (name, unit, code)
-        `)
-        .order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
-});
-
-app.post('/api/purchases', async (req, res) => {
-    const payload = req.body;
-    const purchases = Array.isArray(payload) ? payload : [payload];
-    if (!purchases.length) return res.status(400).json({ error: 'No items provided' });
-
-    try {
-        const results = [];
-        for (const p of purchases) {
-            const { itemId, qty, price, vendor, reference } = p;
-            console.log(`Processing purchase for Item ${itemId}: Qty ${qty}, Price ${price}`);
-            if (!itemId || !qty || isNaN(qty) || isNaN(price)) {
-                console.log('Skipping invalid item:', p);
-                continue;
-            }
-
-            const vendorWithRef = reference ? `${vendor} (Ref: ${reference})` : vendor;
-
-            // 1. Add batch
-            const { data: batch, error: batchError } = await supabase
-                .from('stock_batches')
-                .insert([{ "itemId": itemId, qty, price, vendor: vendorWithRef }])
-                .select();
-            if (batchError) {
-                console.error('Batch Insert Error:', batchError);
-                throw batchError;
-            }
-
-            // 2. Update summary stock
-            const { data: currentStock, error: stockFetchError } = await supabase
-                .from('stocks')
-                .select('*')
-                .eq('itemId', itemId)
-                .single();
-            
-            if (stockFetchError && stockFetchError.code !== 'PGRST116') {
-                console.error('Stock Fetch Error:', stockFetchError);
-                throw stockFetchError;
-            }
-
-            if (currentStock) {
-                console.log(`Updating existing stock for item ${itemId}. Current Qty: ${currentStock.qty}`);
-                const newQty = parseFloat(currentStock.qty) + parseFloat(qty);
-                const oldVal = parseFloat(currentStock.qty) * parseFloat(currentStock.avgPrice || 0);
-                const newVal = parseFloat(qty) * parseFloat(price);
-                const newAvg = (oldVal + newVal) / newQty;
-                const { error: updError } = await supabase.from('stocks').update({ qty: newQty, "avgPrice": newAvg }).eq('itemId', itemId);
-                if (updError) console.error('Stock Update Error:', updError);
-            } else {
-                console.log(`Inserting new stock entry for item ${itemId}`);
-                const { error: insError } = await supabase.from('stocks').insert([{ "itemId": itemId, qty, "avgPrice": price }]);
-                if (insError) console.error('Stock Insert Error:', insError);
-            }
-            results.push(batch[0]);
-        }
-        res.json({ success: true, results });
-    } catch (error) {
-        console.error('Purchase Error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// API Endpoints - Debug/Stats
-app.get('/api/debug/stats', async (req, res) => {
-    try {
-        const { count: itemCount, error: itemError } = await supabase
-            .from('items')
-            .select('*', { count: 'exact', head: true });
-        
-        const { count: productCount, error: productError } = await supabase
-            .from('products')
-            .select('*', { count: 'exact', head: true });
-
-        if (itemError || productError) {
-            return res.status(500).json({ error: itemError || productError });
-        }
-
-        res.json({
-            status: 'connected',
-            database: 'supabase',
-            counts: {
-                items: itemCount,
-                products: productCount
-            },
-            timestamp: new Date().toISOString()
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Fallback for SPA routing - using app.use to catch all remaining routes
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(port, () => {

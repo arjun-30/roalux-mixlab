@@ -14,6 +14,11 @@ const PASSWORDS = {
     admin: 'admin123'
 };
 
+function formatDate(date) {
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
 // INIT
 // ------------------------------------------
 async function init() {
@@ -900,8 +905,8 @@ function renderDraftStages() {
             const diff = batch - currentSum;
             const isBalanced = Math.abs(diff) < 0.001;
             statusHTML = isBalanced
-                ? `<div style="margin-bottom:12px"><span class="chip chip-green">Balanced (${currentSum.toFixed(2)} / ${batch} kg)</span></div>`
-                : `<div style="margin-bottom:12px"><span class="chip chip-red">Unbalanced (Sum: ${currentSum.toFixed(2)} kg)</span></div>`;
+                ? `<div id="draft-status-wrap" style="margin-bottom:12px"><span class="chip chip-green">Balanced (${currentSum.toFixed(2)} / ${batch} kg)</span></div>`
+                : `<div id="draft-status-wrap" style="margin-bottom:12px"><span class="chip chip-red">Unbalanced (Sum: ${currentSum.toFixed(2)} kg)</span></div>`;
         }
 
         const stagesHTML = draftStages.length
@@ -913,6 +918,42 @@ function renderDraftStages() {
             const availableItems = items.filter(it => !s.items.some(si => si.itemId === it.id));
             initSearchableDropdown(`si-sel-draft-${s.id}`, availableItems, null, 'code');
         });
+        
+        // Initialize Sortable for stages (only once)
+        if (draftStages.length && !el.dataset.sortableInitialized) {
+            el.dataset.sortableInitialized = 'true';
+            new Sortable(el, {
+                animation: 150,
+                handle: '.stage-drag-handle',
+                onEnd: function (evt) {
+                    const order = this.toArray();
+                    draftStages.sort((a, b) => order.indexOf(String(a.id)) - order.indexOf(String(b.id)));
+                    // Update names automatically
+                    draftStages.forEach((s, idx) => {
+                        s.name = 'Stage ' + (idx + 1);
+                    });
+                    renderDraftStages();
+                }
+            });
+        }
+        
+        // Initialize Sortable for items within stages (re-created every render)
+        if (draftStages.length) {
+            el.querySelectorAll('.sortable-items').forEach(itemsEl => {
+                new Sortable(itemsEl, {
+                    animation: 150,
+                    handle: '.item-drag-handle',
+                    onEnd: function (evt) {
+                        const stageId = itemsEl.getAttribute('data-stage-id');
+                        const stage = draftStages.find(s => String(s.id) === String(stageId));
+                        if (stage) {
+                            const order = this.toArray();
+                            stage.items.sort((a, b) => order.indexOf(String(a.itemId)) - order.indexOf(String(b.itemId)));
+                        }
+                    }
+                });
+            });
+        }
     }
 }
 
@@ -1003,7 +1044,38 @@ function updateStageItemQty(pid, sid, itemId, val) {
     const p = getTargetProduct(pid); if (!p) return;
     const s = p.stages.find(x => x.id === sid);
     const si = s.items.find(x => x.itemId === itemId);
-    if (si) { si.qty = v; syncOrRender(pid, p); }
+    if (si) { 
+        si.qty = v; 
+        
+        if (pid === 'draft') {
+            // Update sum directly without re-rendering to preserve focus!
+            const batch = parseFloat(document.getElementById('prod-batch').value) || 100;
+            let currentSum = 0;
+            draftStages.forEach(st => st.items.forEach(item => {
+                currentSum += (parseFloat(item.qty) || 0);
+            }));
+            
+            const statusWrap = document.getElementById('draft-status-wrap');
+            if (statusWrap) {
+                const isBalanced = Math.abs(currentSum - batch) < 0.001;
+                statusWrap.innerHTML = isBalanced 
+                    ? `<span class="chip chip-green">Balanced (${currentSum.toFixed(2)} / ${batch} kg)</span>`
+                    : `<span class="chip chip-red">Unbalanced (Sum: ${currentSum.toFixed(2)} kg)</span>`;
+            }
+            
+            // Show tick mark!
+            const row = document.querySelector(`.stage-item-row[data-id="${itemId}"]`);
+            if (row) {
+                const tick = row.querySelector('.save-tick');
+                if (tick) {
+                    tick.style.display = 'inline';
+                    setTimeout(() => { tick.style.display = 'none'; }, 1000);
+                }
+            }
+        } else {
+            syncOrRender(pid, p); 
+        }
+    }
 }
 function removeStageItem(pid, sid, itemId) {
     const p = getTargetProduct(pid); if (!p) return;
@@ -1141,17 +1213,20 @@ function renderStage(p, s, stageIndex) {
     const itemsArray = s.items ? (Array.isArray(s.items) ? s.items : [s.items]) : [];
     const itemRowsHTML = itemsArray.map(si => {
         const it = items.find(x => String(x.id) === String(si.itemId));
-        return `<div class="stage-item-row">
+        return `<div class="stage-item-row" data-id="${si.itemId}">
+            <span class="item-drag-handle" style="cursor:move; margin-right:8px; color:var(--muted);">☰</span>
             <div class="stage-item-name">${it ? esc(it.name) : 'Unknown'}</div>
             <span class="chip chip-blue">${it ? it.unit : 'kg'}</span>
-            <input type="number" value="${si.qty}" min="0.01" step="0.01" style="width:90px;height:30px;" onchange="updateStageItemQty(${pidStr},${s.id},'${si.itemId}',this.value)">
+            <input type="number" value="${si.qty}" min="0" step="any" style="width:90px;height:30px;" oninput="updateStageItemQty(${pidStr},${s.id},'${si.itemId}',this.value)">
+            <span class="save-tick" style="color:var(--green); margin-left:4px; display:none;">✔</span>
             <button class="btn btn-xs btn-danger" onclick="removeStageItem(${pidStr},${s.id},'${si.itemId}')" style="margin-left:auto">✕</button>
         </div>`;
     }).join('');
     const opts = items.map(it => `<option value="${it.id}">${esc(it.name)} (${it.unit})</option>`).join('');
-    return `<div class="stage-card" style="margin-bottom:8px">
+    return `<div class="stage-card" data-id="${s.id}" style="margin-bottom:8px">
         <div class="stage-head">
             <div style="display:flex;align-items:center;gap:8px">
+                <span class="stage-drag-handle" style="cursor:move; margin-right:4px; color:var(--muted);">☰</span>
                 <div class="stage-num">${stageIndex + 1}</div>
                 <input class="stage-name-input" type="text" value="${esc(s.name)}" onblur="renameStage(${pidStr},${s.id},this.value)" onkeydown="if(event.key==='Enter')this.blur()">
                 <div style="display:flex; align-items:center; gap:4px; margin-left:12px;">
@@ -1161,7 +1236,7 @@ function renderStage(p, s, stageIndex) {
             </div>
             <button class="btn btn-xs btn-danger" onclick="deleteStage(${pidStr},${s.id})">Remove</button>
         </div>
-        <div class="stage-body">${itemsArray.length ? itemRowsHTML : '<div style="color:#ccc;text-align:center;">Empty</div>'}</div>
+        <div class="stage-body sortable-items" data-stage-id="${s.id}">${itemsArray.length ? itemRowsHTML : '<div style="color:#ccc;text-align:center;">Empty</div>'}</div>
         <div class="stage-add">
             <div class="dropdown-container" style="flex:1">
                 <input type="text" id="si-sel-${p.id}-${s.id}" placeholder="Search material..." autocomplete="off" style="width:100%;">
@@ -1232,9 +1307,9 @@ function updateUserCalc() {
             const isSufficient = availableQty >= it.scaledQty;
             return `<tr class="result-sub">
                 <td>${esc(it.name)} ${it.code ? `<span class="chip chip-blue">${esc(it.code)}</span>` : ''}</td>
-                <td style="text-align:right;font-weight:800;color:var(--brand-dark)">${it.scaledQty.toFixed(2)}</td>
+                <td style="text-align:right;font-weight:800;color:var(--brand-dark)">${Math.round(it.scaledQty * 1000) / 1000}</td>
                 <td style="text-align:right;font-weight:600;color:${isSufficient ? 'var(--green)' : 'var(--danger)'}">
-                    ${availableQty.toFixed(2)}
+                    ${Math.round(availableQty * 1000) / 1000}
                 </td>
                 <td>${esc(it.unit)}</td>
             </tr>`;
@@ -1274,7 +1349,7 @@ function updateUserCalc() {
                         ${stageHTML}
                         <tr style="background:var(--slate);font-weight:800;">
                             <td>TOTAL INPUT</td>
-                            <td style="text-align:right">${actualRawSum.toFixed(2)}</td>
+                            <td style="text-align:right">${Math.round(actualRawSum * 1000) / 1000}</td>
                             <td></td>
                             <td>kg</td>
                         </tr>
@@ -1351,7 +1426,7 @@ async function reprintBatch(id) {
             quantity: b.quantity,
             batch_number: b.batch_number,
             stages: stages,
-            date: new Date(b.created_at).toLocaleDateString(),
+            date: formatDate(b.created_at),
             time: new Date(b.created_at).toLocaleTimeString()
         });
     } catch (e) { }
@@ -1382,7 +1457,7 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
                 batch_number = data.batch_number;
             } catch (e) { batch_number = 'PROVISIONAL'; }
         }
-        date = new Date().toLocaleDateString();
+        date = formatDate(new Date());
         time = new Date().toLocaleTimeString();
     } else {
         const input = document.getElementById('user-product');
@@ -1416,7 +1491,7 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
         time = new Date().toLocaleTimeString();
     }
 
-    const dateStr = date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateStr = date || formatDate(new Date());
     const timeStr = time || '';
 
     let actualRawSum = 0;
@@ -1426,7 +1501,7 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
             return `
                 <tr>
                     <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; padding-left: 20px;">${esc(si.name)}</td>
-                    <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600;">${si.qty.toFixed(2)}</td>
+                    <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600;">${Math.round(si.qty * 1000) / 1000}</td>
                     <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; padding-left: 10px;">${esc(si.unit)}</td>
                 </tr>
             `;
@@ -1447,23 +1522,47 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
         `;
     }).join('');
 
+    const modifiedDate = formatDate(p.updated_at);
+
+    let gloss = '—', viscosity = '—';
+    try {
+        const descObj = JSON.parse(p.desc);
+        gloss = descObj.gloss || '—';
+        viscosity = descObj.viscosity || '—';
+    } catch(e) {
+        gloss = p.desc || '—';
+    }
+
     const html = `
     <!DOCTYPE html>
     <html>
     <head>
         <title>Batch Sheet - ${batch_number}</title>
         <style>
-            body { font-family: 'Inter', -apple-system, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+            body { font-family: 'Inter', -apple-system, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; position: relative; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th { text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
             .meta-box { border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 8px; flex: 1; }
             .meta-label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
             .meta-value { font-size: 14px; font-weight: 800; color: #1e293b; }
             .stage-row { background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+            .watermark {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-45deg);
+                font-size: 80px;
+                font-weight: 900;
+                color: rgba(128, 128, 128, 0.2);
+                pointer-events: none;
+                white-space: nowrap;
+                z-index: 9999;
+            }
             @media print { body { padding: 20px; } }
         </style>
     </head>
     <body>
+        <div class="watermark">CONFIDENTIAL</div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
             <div style="display: flex; align-items: center; gap: 15px;">
                 <img src="${logoUrl}" style="height: 45px;">
@@ -1475,14 +1574,21 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
             <div style="text-align: right;">
                 <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Batch Number</div>
                 <div style="font-size: 32px; font-weight: 900; color: #2563eb; line-height: 1;">${batch_number}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 4px;">Modified: ${modifiedDate}</div>
             </div>
         </div>
 
-        <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
             <div class="meta-box"><div class="meta-label">Product</div><div class="meta-value">${esc(p.name)}</div></div>
             <div class="meta-box" style="max-width:100px;"><div class="meta-label">Group</div><div class="meta-value">${esc(p.group_code || 'N/A')}</div></div>
             <div class="meta-box" style="max-width:120px;"><div class="meta-label">Target Qty</div><div class="meta-value">${qty} kg</div></div>
             <div class="meta-box"><div class="meta-label">Production Date</div><div class="meta-value">${dateStr}</div></div>
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+            <div class="meta-box"><div class="meta-label">Gloss</div><div class="meta-value">${esc(gloss)}</div></div>
+            <div class="meta-box"><div class="meta-label">Viscosity</div><div class="meta-value">${esc(viscosity)}</div></div>
+            <div class="meta-box"><div class="meta-label">Weight per Litre</div><div class="meta-value">${p.density ? esc(p.density) + ' kg/L' : '—'}</div></div>
         </div>
 
         <table>
@@ -1780,8 +1886,8 @@ function updateEstimate() {
 function exportPDF() {
     const d = calcEstimate();
     if (!d) return;
-    const { p, qtyLitres, margin, scale, totalCost, salePrice, stageSummaries, litreData } = d;
-    const modifiedDate = p.modified_at ? new Date(p.modified_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+    const { p, qtyLitres, qtyKg, margin, scale, totalCost, salePrice, stageSummaries, litreData } = d;
+    const modifiedDate = formatDate(p.modified_at);
     let gloss = '—', viscosity = '—';
     try {
         const descObj = JSON.parse(p.desc);
@@ -1798,7 +1904,7 @@ function exportPDF() {
                 <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Material Cost</div>
             </div>
             <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <div style="font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">Rs. ${(totalCost / qty).toFixed(2)}</div>
+                <div style="font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">Rs. ${(totalCost / qtyKg).toFixed(2)}</div>
                 <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Cost Per KG</div>
             </div>
             <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
@@ -1816,7 +1922,7 @@ function exportPDF() {
             <tr>
                 <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; padding-left: 20px;">${esc(it.name)}</td>
                 <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9;">${it.code ? esc(it.code) : '—'}</td>
-                <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; text-align: right;">${it.scaledQty.toFixed(2)} kg</td>
+                <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; text-align: right;">${Math.round(it.scaledQty * 1000) / 1000} kg</td>
                 <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; text-align: right; padding-right: 20px;">Rs. ${ratePerLitre.toFixed(2)}</td>
                 <td style="padding: 10px 0; font-size: 13px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #f1f5f9; text-align: right;">Rs. ${it.cost.toFixed(2)}</td>
             </tr>
@@ -1856,7 +1962,7 @@ function exportPDF() {
                 transform: translate(-50%, -50%) rotate(-45deg);
                 font-size: 80px;
                 font-weight: 900;
-                color: rgba(220, 38, 38, 0.06);
+                color: rgba(128, 128, 128, 0.2);
                 pointer-events: none;
                 white-space: nowrap;
                 z-index: 9999;
@@ -2035,7 +2141,7 @@ async function renderPurchases() {
             const ref = match ? match[2] : '—';
             
             return `<tr onclick="showRecentPurchaseDetails(${i})" style="cursor:pointer;">
-                <td>${new Date(p.created_at).toLocaleDateString()}</td>
+                <td>${formatDate(p.created_at)}</td>
                 <td><strong>${esc(vendor)}</strong></td>
                 <td>${esc(ref)}</td>
                 <td>${p.items.length} items</td>
@@ -2181,17 +2287,21 @@ function exportPurchasesPDF() {
     if (!currentReportData) { alert("No report data to export."); return; }
     const data = currentReportData;
     const dateStr = currentReportDate || new Date().toISOString().split('T')[0];
-    const dateFormatted = new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateFormatted = formatDate(dateStr);
 
-    const totalSpend = data.purchases.reduce((a, b) => a + b.total_amount, 0);
+    const totalSpend = data.purchases.reduce((a, b) => a + b.items.reduce((sum, it) => sum + (it.qty * it.price), 0), 0);
 
-    const purchasesHTML = data.purchases.map(p => `
-        <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.vendor)}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.items)}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${p.total_amount.toFixed(2)}</td>
-        </tr>
-    `).join('') || '<tr><td colspan="3" style="padding: 8px; text-align: center;">No records.</td></tr>';
+    const purchasesHTML = data.purchases.map(p => {
+        const totalAmount = p.items.reduce((a, b) => a + (b.qty * b.price), 0);
+        const itemNames = p.items.map(it => it.name).join(', ');
+        return `
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.vendor)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(itemNames)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${totalAmount.toFixed(2)}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="3" style="padding: 8px; text-align: center;">No records.</td></tr>';
 
     const html = `
         <html>
@@ -2250,7 +2360,7 @@ function printPurchaseSlip(p) {
     const vendor = match ? match[1] : p.vendor;
     const ref = match ? match[2] : '—';
     
-    const dateFormatted = new Date(p.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateFormatted = formatDate(p.created_at);
     let total = 0;
     
     const itemsHTML = p.items.map(it => {
@@ -2400,7 +2510,7 @@ function exportPurchaseSlipPDF() {
     if (!vendor) { alert("Enter Vendor Name."); return; }
     if (!draftPurchaseItems.length) { alert("No items in the purchase list."); return; }
     
-    const dateFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateFormatted = formatDate(new Date());
     let total = 0;
     
     const itemsHTML = draftPurchaseItems.map(p => {
