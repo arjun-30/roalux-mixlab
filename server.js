@@ -291,6 +291,19 @@ app.get('/api/stocks', async (req, res) => {
     }
 });
 
+app.post('/api/stocks', async (req, res) => {
+    const { itemId, threshold } = req.body;
+    try {
+        await pool.query(
+            'UPDATE stocks SET threshold = ? WHERE itemId = ?',
+            [threshold, itemId]
+        );
+        res.json({ success: true, threshold });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.post('/api/purchases', async (req, res) => {
     const payload = req.body; // Array of { itemId, qty, price, vendor, reference }
     try {
@@ -320,6 +333,15 @@ app.post('/api/purchases', async (req, res) => {
             }
         }
         res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/purchases', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM stock_batches ORDER BY created_at DESC');
+        res.json(rows);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
