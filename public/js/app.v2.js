@@ -2111,19 +2111,36 @@ async function renderPurchases() {
         // Group by vendor/reference
         const groupedPurchases = {};
         data.forEach(p => {
-            const vendor = p.vendor || 'Unknown Vendor';
-            if (!groupedPurchases[vendor]) {
-                groupedPurchases[vendor] = {
+            let vendor = p.vendor || 'Unknown Vendor';
+            let ref = p.reference || '';
+            
+            // Backwards compatibility for old records with "vendor (Ref: ...)" format
+            if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
+                const match = vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+                vendor = match[1];
+                ref = match[2];
+            }
+            
+            const key = vendor + '|' + ref + '|' + new Date(p.created_at).getTime().toString().substring(0, 8); // group by approximate time
+            
+            if (!groupedPurchases[key]) {
+                groupedPurchases[key] = {
                     vendor: vendor,
+                    reference: ref,
                     created_at: p.created_at,
                     items: []
                 };
             }
-            groupedPurchases[vendor].items.push({
-                name: p.items ? p.items.name : `RM ${p.itemId}`,
+            
+            const it = items.find(x => x.id == p.itemId);
+            
+            groupedPurchases[key].items.push({
+                name: it ? it.name : `RM ${p.itemId}`,
                 qty: parseFloat(p.qty),
                 price: parseFloat(p.price),
-                unit: p.items ? p.items.unit : 'kg'
+                unit: it ? it.unit : 'kg',
+                packSize: p.pack_size ? parseFloat(p.pack_size) : null,
+                packs: p.packs ? parseFloat(p.packs) : null
             });
         });
         
@@ -2136,9 +2153,8 @@ async function renderPurchases() {
         }
         
         tb.innerHTML = purchasesSummary.map((p, i) => {
-            const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
-            const vendor = match ? match[1] : p.vendor;
-            const ref = match ? match[2] : '—';
+            const vendor = p.vendor;
+            const ref = p.reference || '—';
             
             return `<tr onclick="showRecentPurchaseDetails(${i})" style="cursor:pointer;">
                 <td>${formatDate(p.created_at)}</td>
