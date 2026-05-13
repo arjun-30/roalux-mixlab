@@ -272,9 +272,20 @@ app.delete('/api/products/:id', async (req, res) => {
 // API Endpoints - Stocks
 app.get('/api/stocks', async (req, res) => {
     try {
-        const [stocks] = await pool.query('SELECT * FROM stocks');
-        const [batches] = await pool.query('SELECT * FROM stock_batches WHERE qty > 0');
-        res.json({ stocks, batches });
+        const [stocksRows] = await pool.query('SELECT * FROM stocks');
+        const [batchesRows] = await pool.query('SELECT * FROM stock_batches WHERE qty > 0');
+        
+        const mappedStocks = {};
+        stocksRows.forEach(s => {
+            mappedStocks[String(s.itemId)] = {
+                qty: s.qty,
+                avgPrice: s.avgPrice,
+                threshold: s.threshold,
+                batches: batchesRows.filter(b => String(b.itemId) === String(s.itemId))
+            };
+        });
+        
+        res.json(mappedStocks);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
