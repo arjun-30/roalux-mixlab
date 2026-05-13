@@ -341,13 +341,14 @@ app.post('/api/stocks/consume', async (req, res) => {
 });
 
 app.post('/api/batches', async (req, res) => {
-    const { product_id, product_name, quantity, batch_number, stages_data } = req.body;
+    const { product_id, product_name, quantity, stages_data } = req.body;
+    const batch_number = req.body.batch_number || `B-${Date.now()}`;
     try {
         await pool.query(
             'INSERT INTO production_history (product_id, product_name, quantity, batch_number, stages_data) VALUES (?, ?, ?, ?, ?)',
             [product_id, product_name, quantity, batch_number, JSON.stringify(stages_data)]
         );
-        res.json({ success: true });
+        res.json({ success: true, batch_number });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
