@@ -60,6 +60,7 @@ async function init() {
         if (currentRole) {
             applyRole(currentRole);
             updateUserCalc();
+            showTab('user-calc');
         } else {
             showTab('login');
         }
