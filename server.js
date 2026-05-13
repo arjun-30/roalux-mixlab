@@ -87,6 +87,9 @@ async function initDb() {
                 qty DOUBLE NOT NULL,
                 price DOUBLE NOT NULL,
                 vendor VARCHAR(255),
+                pack_size DOUBLE DEFAULT NULL,
+                packs DOUBLE DEFAULT NULL,
+                reference VARCHAR(255) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -305,15 +308,15 @@ app.post('/api/stocks', async (req, res) => {
 });
 
 app.post('/api/purchases', async (req, res) => {
-    const payload = req.body; // Array of { itemId, qty, price, vendor, reference }
+    const payload = req.body; // Array of { itemId, qty, price, vendor, reference, packSize, packs }
     try {
         for (const item of payload) {
-            const { itemId, qty, price, vendor, reference } = item;
+            const { itemId, qty, price, vendor, reference, packSize, packs } = item;
             
             // Insert into stock_batches
             await pool.query(
-                'INSERT INTO stock_batches (itemId, qty, price, vendor) VALUES (?, ?, ?, ?)',
-                [itemId, qty, price, vendor]
+                'INSERT INTO stock_batches (itemId, qty, price, vendor, pack_size, packs, reference) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [itemId, qty, price, vendor, packSize, packs, reference]
             );
 
             // Update stocks summary
