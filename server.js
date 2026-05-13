@@ -75,6 +75,20 @@ app.delete('/api/items/:id', async (req, res) => {
     res.json({ deleted: 1 });
 });
 
+app.put('/api/items/:id', async (req, res) => {
+    console.log('PUT /api/items', req.params.id, req.body);
+    const { name, unit, price, cat, code } = req.body;
+    const { error } = await supabase
+        .from('items')
+        .update({ name, unit, price, cat, code })
+        .eq('id', req.params.id);
+    if (error) {
+        console.error('Supabase Error (PUT items):', error);
+        return res.status(500).json({ error: error.message });
+    }
+    res.json({ updated: 1 });
+});
+
 // API Endpoints - Products
 app.get('/api/products', async (req, res) => {
     console.log('GET /api/products');

@@ -445,11 +445,21 @@ async function addStock() {
     stocks[itemId] = { qty: newQty, avgPrice: newAvgPrice };
 
     try {
-        await fetch('/api/stocks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ itemId, qty: newQty, avgPrice: newAvgPrice })
-        });
+        if (!isNaN(purchasePrice) && purchasePrice > 0) {
+            // Add to purchases to support FIFO
+            await fetch('/api/purchases', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify([{ itemId, qty: addQty, price: purchasePrice, vendor: 'Stock Management' }])
+            });
+        } else {
+            // Fallback to simple stock update if no price provided
+            await fetch('/api/stocks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itemId, qty: newQty, avgPrice: newAvgPrice })
+            });
+        }
     } catch (e) { }
 
     qtyEl.value = '';
@@ -536,17 +546,16 @@ function renderStock() {
 // ------------------------------------------
 async function addItem() {
     const name = document.getElementById('item-name').value.trim();
-    const price = parseFloat(document.getElementById('item-price').value);
     const unit = document.getElementById('item-unit').value;
     const code = document.getElementById('item-code').value.trim();
 
-    if (!name || isNaN(price) || price < 0) return;
+    if (!name) return;
 
     try {
         const res = await fetch('/api/items', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, unit, price, code })
+            body: JSON.stringify({ name, unit, price: 0, code })
         });
         if (res.ok) {
             const data = await res.json();
@@ -585,6 +594,35 @@ async function updateItemPrice(id, newPrice) {
     } catch (e) { }
 }
 
+async function updateItemName(id, newName) {
+    const name = newName.trim();
+    if (!name) return;
+    const it = items.find(x => x.id === id);
+    if (!it) return;
+    try {
+        await fetch(`/api/items/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...it, name })
+        });
+        it.name = name;
+    } catch (e) { }
+}
+
+async function updateItemCode(id, newCode) {
+    const code = newCode.trim().toUpperCase();
+    const it = items.find(x => x.id === id);
+    if (!it) return;
+    try {
+        await fetch(`/api/items/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...it, code })
+        });
+        it.code = code;
+    } catch (e) { }
+}
+
 function renderItems() {
     const count = items.length;
     const el = document.getElementById('item-count');
@@ -605,28 +643,77 @@ function renderItems() {
                 : `<span style="color:var(--green);font-weight:700">${s.qty.toFixed(2)} ${it.unit}</span>`;
 
         const threshold = s.threshold || 0;
-        return `<tr>
+        return `<tr onclick="openRmModal(${it.id})" style="cursor:pointer;" title="Click to view details and edit">
             <td style="color:#bbb;font-size:12px">${i + 1}</td>
             <td><strong style="font-weight:600">${esc(it.code || '')}</strong></td>
             <td><strong style="font-weight:600">${esc(it.name)}</strong></td>
             <td><span class="chip chip-blue">kg</span></td>
-            <td>
-                <div style="display:flex;align-items:center;gap:6px">
-                    <span style="color:var(--muted);font-size:12px">Rs.</span>
-                    <input type="number" value="${parseFloat(it.price).toFixed(2)}" min="0" step="0.01"
-                        style="width:90px;height:28px;font-size:12px;border-radius:6px;font-weight:700"
-                        onchange="updateItemPrice(${it.id},this.value)" title="Edit price">
-                    <span style="font-size:11px;color:var(--muted)">/kg</span>
-                </div>
-            </td>
-            <td>
-                <input type="number" value="${parseFloat(threshold).toFixed(2)}" min="0" step="0.01"
-                    style="width:80px;height:28px;font-size:12px;border-radius:6px;background:var(--slate);border:1px solid var(--slate2);text-align:center"
-                    onchange="updateThreshold(${it.id},this.value)" title="Alert Threshold (kg)">
-            </td>
+            <td>${parseFloat(threshold).toFixed(2)}</td>
             <td>${stockDisplay}</td>
         </tr>`;
     }).join('');
+}
+
+function openRmModal(id) {
+    const it = items.find(x => x.id === id);
+    if (!it) return;
+    const s = getStock(id);
+    
+    document.getElementById('modal-item-code').value = it.code || '';
+    document.getElementById('modal-item-name').value = it.name || '';
+    document.getElementById('modal-item-threshold').value = s.threshold || 0;
+    
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.onclick = async () => {
+        const name = document.getElementById('modal-item-name').value.trim();
+        const code = document.getElementById('modal-item-code').value.trim().toUpperCase();
+        const threshold = parseFloat(document.getElementById('modal-item-threshold').value) || 0;
+        
+        if (!name) { alert('Name cannot be empty'); return; }
+        
+        try {
+            await fetch(`/api/items/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...it, name, code })
+            });
+            it.name = name;
+            it.code = code;
+            
+            // Update threshold
+            await fetch('/api/stocks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itemId: id, qty: s.qty, avgPrice: s.avgPrice, threshold })
+            });
+            s.threshold = threshold;
+            
+            closeRmModal();
+            renderItems();
+            renderStock();
+        } catch (e) { }
+    };
+    
+    const deleteBtn = document.getElementById('modal-delete-btn');
+    deleteBtn.onclick = async () => {
+        if (confirm('Remove this material? It will also be removed from all product stages.')) {
+            try {
+                const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    items = items.filter(x => x.id !== id);
+                    closeRmModal();
+                    renderItems();
+                    renderStock();
+                }
+            } catch (e) { }
+        }
+    };
+    
+    document.getElementById('rm-modal').style.display = 'flex';
+}
+
+function closeRmModal() {
+    document.getElementById('rm-modal').style.display = 'none';
 }
 
 // PRODUCT MASTER (Admin)
@@ -636,8 +723,9 @@ async function addProduct() {
     const name = document.getElementById('prod-name').value.trim();
     const batch = parseFloat(document.getElementById('prod-batch').value);
     const density = parseFloat(document.getElementById('prod-density').value) || 0;
-    const descEl = document.getElementById('prod-desc');
-    const desc = descEl ? descEl.value.trim() : '';
+    const gloss = document.getElementById('prod-gloss').value.trim();
+    const viscosity = document.getElementById('prod-viscosity').value.trim();
+    const desc = JSON.stringify({ gloss, viscosity });
     if (!name || isNaN(batch) || batch <= 0) {
         alert("Please provide a valid product name and batch size.");
         return;
@@ -1644,10 +1732,10 @@ function updateEstimate() {
                 <div style="font-size:32px; font-weight:900; color:var(--ink); font-family:var(--font-display);">Rs. ${totalCost.toFixed(2)}</div>
                 <div style="font-size:12px; color:var(--muted); margin-top:4px; font-weight:500;">Based on ${actualRawSum.toFixed(2)} kg ingredients</div>
             </div>
-            <div style="background:linear-gradient(135deg, #eff6ff, #dbeafe); padding:24px; border-radius:16px; border:1px solid #bfdbfe; box-shadow:0 4px 15px rgba(37,99,235,0.08);">
-                <div style="font-size:12px; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Estimated Selling Price</div>
-                <div style="font-size:32px; font-weight:900; color:#1e3a8a; font-family:var(--font-display);">Rs. ${salePrice.toFixed(2)}</div>
-                <div style="font-size:12px; color:#3b82f6; margin-top:4px; font-weight:600;">Includes ${margin}% Profit Margin</div>
+            <div style="background:linear-gradient(135deg, #f0fdfa, #ccfbf1); padding:24px; border-radius:16px; border:1px solid #99f6e4; box-shadow:0 4px 15px rgba(13,148,136,0.08);">
+                <div style="font-size:12px; color:#115e59; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Estimated Selling Price</div>
+                <div style="font-size:32px; font-weight:900; color:#134e4a; font-family:var(--font-display);">Rs. ${salePrice.toFixed(2)}</div>
+                <div style="font-size:12px; color:#0d9488; margin-top:4px; font-weight:600;">Includes ${margin}% Profit Margin</div>
             </div>
             ${litreMetrics}
         </div>
@@ -1693,7 +1781,15 @@ function exportPDF() {
     const d = calcEstimate();
     if (!d) return;
     const { p, qtyLitres, margin, scale, totalCost, salePrice, stageSummaries, litreData } = d;
-    const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const modifiedDate = p.modified_at ? new Date(p.modified_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+    let gloss = '—', viscosity = '—';
+    try {
+        const descObj = JSON.parse(p.desc);
+        gloss = descObj.gloss || '—';
+        viscosity = descObj.viscosity || '—';
+    } catch(e) {
+        gloss = p.desc || '—';
+    }
 
     const summaryBoxes = `
         <div style="display: flex; gap: 20px; margin-bottom: 30px;">
@@ -1747,15 +1843,30 @@ function exportPDF() {
     <head>
         <title>Price Estimate - ${esc(p.name)}</title>
         <style>
-            body { font-family: 'Inter', -apple-system, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+            body { font-family: 'Inter', -apple-system, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; position: relative; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
+            th, td { border: 1px solid #e2e8f0; }
+            th { text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px; border-bottom: 2px solid #e2e8f0; }
             .meta-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
             .meta-value { font-size: 16px; font-weight: 800; color: #1e293b; }
+            .watermark {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-45deg);
+                font-size: 80px;
+                font-weight: 900;
+                color: rgba(220, 38, 38, 0.06);
+                pointer-events: none;
+                white-space: nowrap;
+                z-index: 9999;
+                font-family: sans-serif;
+            }
             @media print { body { padding: 20px; } .no-print { display: none; } }
         </style>
     </head>
     <body>
+        <div class="watermark">CONFIDENTIAL</div>
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
             <div>
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
@@ -1766,7 +1877,7 @@ function exportPDF() {
             </div>
             <div style="text-align: right;">
                 <div style="font-size: 28px; font-weight: 800; color: #1e293b;">Price Estimate</div>
-                <div style="font-size: 14px; font-weight: 600; color: #64748b;">${dateStr}</div>
+                <div style="font-size: 14px; font-weight: 600; color: #64748b;">Modified: ${modifiedDate}</div>
             </div>
         </div>
         
@@ -1778,6 +1889,8 @@ function exportPDF() {
             <div><div class="meta-label">Batch</div><div class="meta-value">${p.batch} kg</div></div>
             <div><div class="meta-label">Required</div><div class="meta-value">${qtyLitres} L</div></div>
             <div><div class="meta-label">Margin</div><div class="meta-value">${margin}%</div></div>
+            <div><div class="meta-label">Gloss</div><div class="meta-value">${esc(gloss)}</div></div>
+            <div><div class="meta-label">Viscosity</div><div class="meta-value">${esc(viscosity)}</div></div>
         </div>
 
         ${summaryBoxes}
@@ -1849,6 +1962,8 @@ function populatePurchSelect() {
     initSearchableDropdown('purch-item-bulk', items, (it) => {
         const codeInput = document.getElementById('purch-code-bulk');
         if (codeInput) codeInput.value = it.code || '';
+        const unitInput = document.getElementById('purch-unit');
+        if (unitInput) unitInput.value = it.unit || 'kg';
     }, 'code');
 
     const codeInput = document.getElementById('purch-code-bulk');
@@ -1861,9 +1976,23 @@ function populatePurchSelect() {
                 const itemInput = document.getElementById('purch-item-bulk');
                 itemInput.value = match.name;
                 itemInput.setAttribute('data-id', match.id);
+                const unitInput = document.getElementById('purch-unit');
+                if (unitInput) unitInput.value = match.unit || 'kg';
             }
         });
     }
+}
+
+function calculatePurchaseTotals() {
+    const packSize = parseFloat(document.getElementById('purch-pack-size').value) || 0;
+    const packs = parseFloat(document.getElementById('purch-packs').value) || 0;
+    const unitPrice = parseFloat(document.getElementById('purch-price-bulk').value) || 0;
+    
+    const totalQty = packSize * packs;
+    const totalPrice = totalQty * unitPrice;
+    
+    document.getElementById('purch-qty-bulk').value = totalQty.toFixed(2);
+    document.getElementById('purch-total-price').value = totalPrice.toFixed(2);
 }
 
 async function renderPurchases() {
@@ -1927,9 +2056,17 @@ function addPurchaseItemToDraft() {
         alert("Selected material not found. Please re-select from the list.");
         return;
     }
-    draftPurchaseItems.push({ itemId, qty, price, name: it.name, unit: it.unit, code: it.code });
+    const packSize = parseFloat(document.getElementById('purch-pack-size').value) || 1;
+    const packs = parseFloat(document.getElementById('purch-packs').value) || 0;
+    
+    draftPurchaseItems.push({ itemId, qty, price, name: it.name, unit: it.unit, code: it.code, packSize, packs });
+    
+    document.getElementById('purch-pack-size').value = '';
+    document.getElementById('purch-packs').value = '';
     document.getElementById('purch-qty-bulk').value = '';
     document.getElementById('purch-price-bulk').value = '';
+    document.getElementById('purch-total-price').value = '';
+    
     renderDraftPurchaseItems();
 }
 
@@ -1950,7 +2087,9 @@ function renderDraftPurchaseItems() {
         total += sub;
         return `<tr>
             <td><strong>${esc(p.name)}</strong> ${p.code ? `<span class="chip chip-blue">${esc(p.code)}</span>` : ''}</td>
-            <td>${p.qty} ${esc(p.unit)}</td>
+            <td>${p.packSize ? p.packSize.toFixed(2) : '—'}</td>
+            <td>${p.packs ? p.packs.toFixed(2) : '—'}</td>
+            <td>${p.qty.toFixed(2)} ${esc(p.unit)}</td>
             <td>Rs. ${p.price.toFixed(2)}</td>
             <td>Rs. ${sub.toFixed(2)}</td>
             <td><button class="btn btn-xs btn-danger" onclick="removePurchaseItemFromDraft(${i})">Remove</button></td>
@@ -2120,6 +2259,8 @@ function printPurchaseSlip(p) {
         return `
             <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(it.name)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${it.packSize ? it.packSize.toFixed(2) : '—'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${it.packs ? it.packs.toFixed(2) : '—'}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${it.qty.toFixed(2)} ${esc(it.unit)}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${it.price.toFixed(2)}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${sub.toFixed(2)}</td>
@@ -2134,6 +2275,7 @@ function printPurchaseSlip(p) {
             <style>
                 body { font-family: sans-serif; color: #333; line-height: 1.4; }
                 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { border: 1px solid #ddd; padding: 8px; }
                 th { background: #f8fafc; text-align: left; padding: 8px; font-size: 12px; text-transform: uppercase; color: #64748b; }
             </style>
         </head>
@@ -2160,7 +2302,7 @@ function printPurchaseSlip(p) {
             </div>
 
             <table>
-                <thead><tr><th>Material</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead>
+                <thead><tr><th>Material</th><th style="text-align:right;">Pack Size</th><th style="text-align:right;">Packs</th><th style="text-align:right;">Total Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Total Price</th></tr></thead>
                 <tbody>${itemsHTML}</tbody>
             </table>
 
@@ -2267,6 +2409,8 @@ function exportPurchaseSlipPDF() {
         return `
             <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.name)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${p.packSize ? p.packSize.toFixed(2) : '—'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${p.packs ? p.packs.toFixed(2) : '—'}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${p.qty.toFixed(2)} ${esc(p.unit)}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${p.price.toFixed(2)}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${sub.toFixed(2)}</td>
@@ -2281,6 +2425,7 @@ function exportPurchaseSlipPDF() {
             <style>
                 body { font-family: sans-serif; color: #333; line-height: 1.4; }
                 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { border: 1px solid #ddd; padding: 8px; }
                 th { background: #f8fafc; text-align: left; padding: 8px; font-size: 12px; text-transform: uppercase; color: #64748b; }
             </style>
         </head>
@@ -2307,7 +2452,7 @@ function exportPurchaseSlipPDF() {
             </div>
 
             <table>
-                <thead><tr><th>Material</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead>
+                <thead><tr><th>Material</th><th style="text-align:right;">Pack Size</th><th style="text-align:right;">Packs</th><th style="text-align:right;">Total Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Total Price</th></tr></thead>
                 <tbody>${itemsHTML}</tbody>
             </table>
 
@@ -2500,4 +2645,25 @@ function initSearchableDropdown(inputId, data, onSelect, codeKey = 'group_code')
 function esc(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// Enter key navigation between inputs
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+        if (e.target.tagName === 'TEXTAREA') return;
+        
+        const activeTab = document.querySelector('.anim:not([style*="display:none"])') 
+                        || document.querySelector('.tab-content:not([style*="display:none"])')
+                        || document.querySelector('main');
+        if (!activeTab) return;
+        
+        const focusable = Array.from(activeTab.querySelectorAll('input:not([readonly]):not([disabled]), button.btn-brand, button.btn-primary, button.btn-reduce-stock'));
+        const index = focusable.indexOf(e.target);
+        
+        if (index > -1 && index < focusable.length - 1) {
+            const next = focusable[index + 1];
+            next.focus();
+            e.preventDefault();
+        }
+    }
+});
 
