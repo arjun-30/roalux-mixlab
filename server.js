@@ -350,6 +350,15 @@ app.get('/api/purchases', async (req, res) => {
     }
 });
 
+app.delete('/api/purchases', async (req, res) => {
+    try {
+        await pool.query('TRUNCATE TABLE stock_batches');
+        res.json({ success: true, message: 'Purchase history cleared' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.post('/api/stocks/consume', async (req, res) => {
     const { items: consumeItems } = req.body; // Array of { itemId, qty }
     try {
