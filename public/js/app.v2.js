@@ -2376,9 +2376,16 @@ function exportPurchasesPDF() {
 }
 
 function printPurchaseSlip(p) {
-    const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
-    const vendor = match ? match[1] : p.vendor;
-    const ref = match ? match[2] : '—';
+    let vendor = p.vendor || 'Unknown Vendor';
+    let ref = p.reference || '';
+    
+    if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
+        const match = vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+        vendor = match[1];
+        ref = match[2];
+    }
+    
+    if (!ref) ref = '—';
     
     const dateFormatted = formatDate(p.created_at);
     let total = 0;
@@ -2460,9 +2467,16 @@ function printRecentPurchase(idx) {
 }
 
 function showPurchaseDetailsModal(p) {
-    const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
-    const vendor = match ? match[1] : p.vendor;
-    const ref = match ? match[2] : '—';
+    let vendor = p.vendor || 'Unknown Vendor';
+    let ref = p.reference || '';
+    
+    if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
+        const match = vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+        vendor = match[1];
+        ref = match[2];
+    }
+    
+    if (!ref) ref = '—';
     
     let total = 0;
     const itemsHTML = p.items.map(it => {
