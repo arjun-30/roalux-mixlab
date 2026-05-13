@@ -1008,7 +1008,7 @@ function updateStageItemQty(pid, sid, itemId, val) {
 function removeStageItem(pid, sid, itemId) {
     const p = getTargetProduct(pid); if (!p) return;
     const s = p.stages.find(x => x.id === sid);
-    s.items = s.items.filter(x => x.itemId !== itemId);
+    s.items = s.items.filter(x => String(x.itemId) !== String(itemId));
     syncOrRender(pid, p);
 }
 
@@ -2651,12 +2651,10 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
         if (e.target.tagName === 'TEXTAREA') return;
         
-        const activeTab = document.querySelector('.anim:not([style*="display:none"])') 
-                        || document.querySelector('.tab-content:not([style*="display:none"])')
-                        || document.querySelector('main');
-        if (!activeTab) return;
+        // Scope to closest form/container for better flow
+        const container = e.target.closest('.form-grid') || e.target.closest('.card') || document.querySelector('.anim:not([style*="display:none"])') || document;
         
-        const focusable = Array.from(activeTab.querySelectorAll('input:not([readonly]):not([disabled]), button.btn-brand, button.btn-primary, button.btn-reduce-stock'));
+        const focusable = Array.from(container.querySelectorAll('input:not([readonly]):not([disabled]), button.btn-brand, button.btn-primary, button.btn-reduce-stock'));
         const index = focusable.indexOf(e.target);
         
         if (index > -1 && index < focusable.length - 1) {

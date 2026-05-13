@@ -67,7 +67,7 @@ app.delete('/api/items/:id', async (req, res) => {
     const { error } = await supabase
         .from('items')
         .delete()
-        .eq('id', req.params.id);
+        .eq('id', parseInt(req.params.id));
     if (error) {
         console.error('Supabase Error (DELETE items):', error);
         return res.status(500).json({ error: error.message });
@@ -81,7 +81,7 @@ app.put('/api/items/:id', async (req, res) => {
     const { error } = await supabase
         .from('items')
         .update({ name, unit, price, cat, code })
-        .eq('id', req.params.id);
+        .eq('id', parseInt(req.params.id));
     if (error) {
         console.error('Supabase Error (PUT items):', error);
         return res.status(500).json({ error: error.message });
