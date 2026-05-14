@@ -337,10 +337,10 @@ app.post('/api/purchases', async (req, res) => {
             const [current] = await pool.query('SELECT qty, avgPrice FROM stocks WHERE itemId = ?', [itemId]);
             if (current.length > 0) {
                 const newQty = current[0].qty + qty;
-                const newAvg = ((current[0].qty * current[0].avgPrice) + (qty * price)) / newQty;
+                // Update to the latest price for FIFO inventory valuation
                 await pool.query(
                     'UPDATE stocks SET qty = ?, avgPrice = ? WHERE itemId = ?',
-                    [newQty, newAvg, itemId]
+                    [newQty, price, itemId]
                 );
             } else {
                 await pool.query(
