@@ -2314,7 +2314,6 @@ async function renderDailyReport(date) {
                 <td>${esc(ref)}</td>
                 <td>${p.items.length} items</td>
                 <td onclick="event.stopPropagation()"><button class="btn btn-xs btn-ghost" onclick="printReportPurchase(${idx})" style="display:inline-flex; align-items:center; gap:4px; font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2-2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Print</button></td>
-            </tr>`; 8 20 8"></polyline></svg>Print</button></td>
             </tr>`;
         }).join('') || '<tr><td colspan="5" class="empty">No records.</td></tr>';
 
@@ -2350,20 +2349,20 @@ function exportPurchasesPDF() {
         }
         
         const itemDetails = p.items.map(it => {
-            const packStr = it.packSize ? \`(\${it.packs ? it.packs.toFixed(2) : 0} x \${it.packSize.toFixed(2)})\` : '';
-            return \`\${esc(it.name)} \${packStr}\`.trim();
+            const packStr = it.packSize ? `(${it.packs ? it.packs.toFixed(2) : 0} x ${it.packSize.toFixed(2)})` : '';
+            return `${esc(it.name)} ${packStr}`.trim();
         }).join('<br>');
         
-        return \`
+        return `
             <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd;">
-                    <strong>\${esc(vendorName)}</strong>
-                    \${ref ? \`<div style="font-size:10px; color:#64748b;">Ref: \${esc(ref)}</div>\` : ''}
+                    <strong>${esc(vendorName)}</strong>
+                    ${ref ? `<div style="font-size:10px; color:#64748b;">Ref: ${esc(ref)}</div>` : ''}
                 </td>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd; font-size:11px;">\${itemDetails}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. \${totalAmount.toFixed(2)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; font-size:11px;">${itemDetails}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${totalAmount.toFixed(2)}</td>
             </tr>
-        \`;
+        `;
     }).join('') || '<tr><td colspan="3" style="padding: 8px; text-align: center;">No records.</td></tr>';
 
     const html = `
