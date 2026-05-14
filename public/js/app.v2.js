@@ -411,14 +411,11 @@ function updateAvgPreview(itemId, s, curAvg, it) {
     const previewEl = document.getElementById('stock-avg-preview');
     if (!previewEl) return;
     if (!isNaN(addQty) && addQty > 0 && !isNaN(newPrice) && newPrice > 0) {
-        const totalQty = s.qty + addQty;
-        const weightedAvg = ((s.qty * curAvg) + (addQty * newPrice)) / totalQty;
         previewEl.style.display = 'block';
-        previewEl.innerHTML = `<strong>📊 Weighted Avg Preview:</strong>
-            &nbsp;&nbsp;Opening: ${s.qty.toFixed(2)} ${it?.unit || ''} @ Rs.${parseFloat(curAvg).toFixed(2)}
-            &nbsp;+&nbsp; Adding: ${addQty.toFixed(2)} ${it?.unit || ''} @ Rs.${newPrice.toFixed(2)}
-            &nbsp;→&nbsp; <strong>New Avg Price: Rs.${weightedAvg.toFixed(2)} / ${it?.unit || 'unit'}</strong>
-            &nbsp;&nbsp;(Total: ${totalQty.toFixed(2)} ${it?.unit || ''})`;
+        previewEl.innerHTML = `<strong>📊 FIFO Price Preview:</strong>
+            &nbsp;&nbsp;Opening: ${s.qty.toFixed(2)} ${it?.unit || ''}
+            &nbsp;→&nbsp; <strong>New FIFO Price: Rs.${newPrice.toFixed(2)} / ${it?.unit || 'unit'}</strong>
+        `;
     } else {
         previewEl.style.display = 'none';
     }
@@ -441,12 +438,7 @@ async function addStock() {
     const curAvg = (cur.avgPrice !== null && cur.avgPrice > 0) ? cur.avgPrice : (it ? parseFloat(it.price) : 0);
     let newAvgPrice = cur.avgPrice;
     if (!isNaN(purchasePrice) && purchasePrice > 0) {
-        const totalQty = cur.qty + addQty;
-        if (totalQty > 0 && cur.qty > 0) {
-            newAvgPrice = ((cur.qty * curAvg) + (addQty * purchasePrice)) / totalQty;
-        } else {
-            newAvgPrice = purchasePrice;
-        }
+        newAvgPrice = purchasePrice; // FIFO: Latest acquisition cost
     } else if (cur.avgPrice === null || cur.avgPrice === undefined) {
         newAvgPrice = it ? parseFloat(it.price) : 0;
     }
