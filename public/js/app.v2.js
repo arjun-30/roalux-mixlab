@@ -595,11 +595,16 @@ async function updateItemPrice(id, newPrice) {
     const it = items.find(x => x.id === id);
     if (!it) return;
     try {
-        await fetch(`/api/items/${id}`, {
+        const res = await fetch(`/api/items/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...it, price: p })
         });
+        if (!res.ok) {
+            const data = await res.json();
+            alert(data.error || "Failed to update item price.");
+            return;
+        }
         it.price = p;
     } catch (e) { }
 }
@@ -610,11 +615,16 @@ async function updateItemName(id, newName) {
     const it = items.find(x => x.id === id);
     if (!it) return;
     try {
-        await fetch(`/api/items/${id}`, {
+        const res = await fetch(`/api/items/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...it, name })
         });
+        if (!res.ok) {
+            const data = await res.json();
+            alert(data.error || "Failed to update item name.");
+            return;
+        }
         it.name = name;
     } catch (e) { }
 }
@@ -624,11 +634,16 @@ async function updateItemCode(id, newCode) {
     const it = items.find(x => x.id === id);
     if (!it) return;
     try {
-        await fetch(`/api/items/${id}`, {
+        const res = await fetch(`/api/items/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...it, code })
         });
+        if (!res.ok) {
+            const data = await res.json();
+            alert(data.error || "Failed to update item code.");
+            return;
+        }
         it.code = code;
     } catch (e) { }
 }
@@ -682,11 +697,16 @@ function openRmModal(id) {
         if (!name) { alert('Name cannot be empty'); return; }
         
         try {
-            await fetch(`/api/items/${id}`, {
+            const res = await fetch(`/api/items/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...it, name, code })
             });
+            if (!res.ok) {
+                const data = await res.json();
+                alert(data.error || "Failed to update item.");
+                return;
+            }
             it.name = name;
             it.code = code;
             
@@ -2277,17 +2297,24 @@ async function renderDailyReport(date) {
         const put = document.getElementById('rep-purch-tbody');
         const totalSpend = data.purchases.reduce((a, p) => a + p.items.reduce((acc, it) => acc + (it.qty * it.price), 0), 0);
         document.getElementById('rep-total-spend').textContent = 'Rs. ' + totalSpend.toLocaleString();
+        
         put.innerHTML = data.purchases.map((p, idx) => {
-            const match = p.vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
-            const vendor = match ? match[1] : p.vendor;
-            const ref = match ? match[2] : '—';
+            let vendor = p.vendor || 'Unknown Vendor';
+            let ref = p.reference || '';
+            if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
+                const match = vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+                vendor = match[1];
+                ref = match[2];
+            }
+            if (!ref) ref = '—';
             
             return `<tr onclick="showPurchaseDetails(${idx})" style="cursor:pointer;">
                 <td>${new Date(p.created_at).toLocaleTimeString()}</td>
                 <td><strong>${esc(vendor)}</strong></td>
                 <td>${esc(ref)}</td>
                 <td>${p.items.length} items</td>
-                <td onclick="event.stopPropagation()"><button class="btn btn-xs btn-ghost" onclick="printReportPurchase(${idx})" style="display:inline-flex; align-items:center; gap:4px; font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Print</button></td>
+                <td onclick="event.stopPropagation()"><button class="btn btn-xs btn-ghost" onclick="printReportPurchase(${idx})" style="display:inline-flex; align-items:center; gap:4px; font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2-2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Print</button></td>
+            </tr>`; 8 20 8"></polyline></svg>Print</button></td>
             </tr>`;
         }).join('') || '<tr><td colspan="5" class="empty">No records.</td></tr>';
 
@@ -2314,14 +2341,29 @@ function exportPurchasesPDF() {
 
     const purchasesHTML = data.purchases.map(p => {
         const totalAmount = p.items.reduce((a, b) => a + (b.qty * b.price), 0);
-        const itemNames = p.items.map(it => it.name).join(', ');
-        return `
+        let vendorName = p.vendor || 'Unknown Vendor';
+        let ref = p.reference || '';
+        if (!ref && vendorName.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
+            const match = vendorName.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
+            vendorName = match[1];
+            ref = match[2];
+        }
+        
+        const itemDetails = p.items.map(it => {
+            const packStr = it.packSize ? \`(\${it.packs ? it.packs.toFixed(2) : 0} x \${it.packSize.toFixed(2)})\` : '';
+            return \`\${esc(it.name)} \${packStr}\`.trim();
+        }).join('<br>');
+        
+        return \`
             <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(p.vendor)}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${esc(itemNames)}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. ${totalAmount.toFixed(2)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">
+                    <strong>\${esc(vendorName)}</strong>
+                    \${ref ? \`<div style="font-size:10px; color:#64748b;">Ref: \${esc(ref)}</div>\` : ''}
+                </td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; font-size:11px;">\${itemDetails}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Rs. \${totalAmount.toFixed(2)}</td>
             </tr>
-        `;
+        \`;
     }).join('') || '<tr><td colspan="3" style="padding: 8px; text-align: center;">No records.</td></tr>';
 
     const html = `
@@ -2485,15 +2527,17 @@ function showPurchaseDetailsModal(p) {
         total += sub;
         return `<tr>
             <td>${esc(it.name)}</td>
-            <td>${it.qty.toFixed(2)} ${esc(it.unit)}</td>
-            <td>Rs. ${it.price.toFixed(2)}</td>
-            <td>Rs. ${sub.toFixed(2)}</td>
+            <td style="text-align: right;">${it.packSize ? it.packSize.toFixed(2) : '—'}</td>
+            <td style="text-align: right;">${it.packs ? it.packs.toFixed(2) : '—'}</td>
+            <td style="text-align: right;">${it.qty.toFixed(2)} ${esc(it.unit)}</td>
+            <td style="text-align: right;">Rs. ${it.price.toFixed(2)}</td>
+            <td style="text-align: right;">Rs. ${sub.toFixed(2)}</td>
         </tr>`;
     }).join('');
 
     const modalHTML = `
         <div id="purchase-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); display:flex; justify-content:center; align-items:center; z-index:1000;">
-            <div class="card" style="width:500px; max-width:90%; max-height:80vh; overflow-y:auto; background:var(--white); border:1px solid var(--slate2); box-shadow:var(--shadow-xl);">
+            <div class="card" style="width:650px; max-width:90%; max-height:80vh; overflow-y:auto; background:var(--white); border:1px solid var(--slate2); box-shadow:var(--shadow-xl);">
                 <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
                     <div class="card-title">Purchase Details</div>
                     <button class="btn btn-xs btn-danger" onclick="closePurchaseModal()">✕</button>
@@ -2506,7 +2550,7 @@ function showPurchaseDetailsModal(p) {
                     </div>
                     <div class="table-wrap">
                         <table>
-                            <thead><tr><th>Material</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+                            <thead><tr><th>Material</th><th style="text-align:right;">Pack Size</th><th style="text-align:right;">Packs</th><th style="text-align:right;">Total Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead>
                             <tbody>${itemsHTML}</tbody>
                         </table>
                     </div>

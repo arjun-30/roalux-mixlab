@@ -164,6 +164,13 @@ app.post('/api/items', async (req, res) => {
             return res.status(400).json({ error: `Material "${name}" already exists.` });
         }
 
+        if (code && code.trim() !== '') {
+            const [existingCode] = await pool.query('SELECT id FROM items WHERE code = ?', [code]);
+            if (existingCode.length > 0) {
+                return res.status(400).json({ error: `Material code "${code}" already exists.` });
+            }
+        }
+
         const [result] = await pool.query(
             'INSERT INTO items (name, unit, price, cat, code) VALUES (?, ?, ?, ?, ?)',
             [name, unit, price, cat, code]
@@ -186,6 +193,13 @@ app.delete('/api/items/:id', async (req, res) => {
 app.put('/api/items/:id', async (req, res) => {
     const { name, unit, price, cat, code } = req.body;
     try {
+        if (code && code.trim() !== '') {
+            const [existingCode] = await pool.query('SELECT id FROM items WHERE code = ? AND id != ?', [code, req.params.id]);
+            if (existingCode.length > 0) {
+                return res.status(400).json({ error: `Material code "${code}" already exists.` });
+            }
+        }
+
         await pool.query(
             'UPDATE items SET name = ?, unit = ?, price = ?, cat = ?, code = ? WHERE id = ?',
             [name, unit, price, cat, code, req.params.id]
@@ -422,18 +436,23 @@ app.get('/api/reports/daily', async (req, res) => {
             [start, end]
         );
 
-        // Group purchases by vendor
+        // Group purchases by vendor and reference
         const groupedPurchases = {};
         purchases.forEach(p => {
-            const vendor = p.vendor || 'Unknown Vendor';
-            if (!groupedPurchases[vendor]) {
-                groupedPurchases[vendor] = { vendor, created_at: p.created_at, items: [] };
+            const vendorName = p.vendor || 'Unknown Vendor';
+            const ref = p.reference || '';
+            const key = vendorName + '|||' + ref;
+            
+            if (!groupedPurchases[key]) {
+                groupedPurchases[key] = { vendor: vendorName, reference: ref, created_at: p.created_at, items: [] };
             }
-            groupedPurchases[vendor].items.push({
+            groupedPurchases[key].items.push({
                 name: p.name,
                 qty: p.qty,
                 price: p.price,
-                unit: p.unit
+                unit: p.unit,
+                packSize: p.pack_size ? parseFloat(p.pack_size) : null,
+                packs: p.packs ? parseFloat(p.packs) : null
             });
         });
 
