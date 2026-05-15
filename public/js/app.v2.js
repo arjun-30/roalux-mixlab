@@ -14,9 +14,18 @@ const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 let lastActivityTime = parseInt(localStorage.getItem('roaluxLastActivity')) || Date.now();
 let sessionInterval = null;
 
-const PASSWORDS = {
-    manager: 'manager123',
-    admin: 'admin123'
+// Global Fetch Interceptor to handle 401 Unauthorized globally
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    const response = await originalFetch.apply(this, args);
+    if (response.status === 401) {
+        const url = args[0];
+        if (typeof url === 'string' && !url.includes('/api/login')) {
+            alert('Your session has expired or is invalid. Please log in again.');
+            logout(true); // force local logout
+        }
+    }
+    return response;
 };
 
 function formatDate(date) {
@@ -145,26 +154,40 @@ function doLogin() {
     errEl.style.display = 'none';
 
     const pw = document.getElementById('admin-pw').value;
-    if (pw === PASSWORDS[selectedLoginRole]) {
-        currentRole = selectedLoginRole;
-        localStorage.setItem('roaluxRole', selectedLoginRole);
-        localStorage.setItem('roaluxLastActivity', Date.now());
-        
-        // Log history
-        fetch('/api/login-history', {
+    
+    try {
+        const res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: currentRole, action: 'login' })
-        }).catch(e => console.error(e));
+            body: JSON.stringify({ role: selectedLoginRole, password: pw })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            currentRole = selectedLoginRole;
+            localStorage.setItem('roaluxRole', selectedLoginRole);
+            localStorage.setItem('roaluxLastActivity', Date.now());
+            
+            // Log history
+            fetch('/api/login-history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: currentRole, action: 'login' })
+            }).catch(e => console.error(e));
 
-        applyRole(selectedLoginRole);
-        showTab('user-calc');
-        startSessionTimer();
-    } else {
+            applyRole(selectedLoginRole);
+            showTab('user-calc');
+            startSessionTimer();
+        } else {
+            errEl.style.display = 'block';
+            errEl.innerHTML = data.error || 'Incorrect password. Please try again.';
+            document.getElementById('admin-pw').value = '';
+            document.getElementById('admin-pw').focus();
+        }
+    } catch (e) {
         errEl.style.display = 'block';
-        errEl.innerHTML = 'Incorrect password. Please try again.';
-        document.getElementById('admin-pw').value = '';
-        document.getElementById('admin-pw').focus();
+        errEl.innerHTML = 'An error occurred during login. Please try again.';
     }
 }
 
@@ -175,6 +198,9 @@ function logout(isTimeout = false) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: currentRole, action: isTimeout ? 'timeout' : 'logout' })
         }).catch(e => console.error(e));
+        
+        // Destroy server session
+        fetch('/api/logout', { method: 'POST' }).catch(e => console.error(e));
     }
 
     currentRole = null;
@@ -304,13 +330,14 @@ async function renderLoginHistory() {
         }
         tb.innerHTML = rows.map(r => {
             let actColor = 'var(--ink)';
+            let displayAction = r.action;
             if (r.action === 'login') actColor = 'var(--green)';
-            if (r.action === 'logout') actColor = 'var(--muted)';
-            if (r.action === 'timeout') actColor = 'var(--danger)';
+            if (r.action === 'logout') { actColor = 'var(--muted)'; displayAction = 'Logged Out'; }
+            if (r.action === 'timeout') { actColor = 'var(--danger)'; displayAction = 'Timed Out'; }
             return `<tr>
                 <td>${new Date(r.created_at).toLocaleString('en-GB')}</td>
                 <td><span style="text-transform:capitalize;font-weight:600">${r.role}</span></td>
-                <td style="color:${actColor};font-weight:600;text-transform:capitalize">${r.action}</td>
+                <td style="color:${actColor};font-weight:600;text-transform:capitalize">${displayAction}</td>
             </tr>`;
         }).join('');
     } catch (e) {

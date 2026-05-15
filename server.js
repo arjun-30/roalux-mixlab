@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const session = require('express-session');
 require('dotenv').config();
 
 const app = express();
@@ -10,10 +11,44 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'roalux_mixlab_super_secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 } // 24 hours
+}));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// Authentication Endpoints
+app.post('/api/login', (req, res) => {
+    const { role, password } = req.body;
+    if (role === 'manager' && password === process.env.MANAGER_PASSWORD) {
+        req.session.role = 'manager';
+        res.json({ success: true, role: 'manager' });
+    } else if (role === 'admin' && password === process.env.ADMIN_PASSWORD) {
+        req.session.role = 'admin';
+        res.json({ success: true, role: 'admin' });
+    } else {
+        res.status(401).json({ error: 'Invalid password' });
+    }
+});
+
+app.post('/api/logout', (req, res) => {
+    req.session.destroy();
+    res.json({ success: true });
+});
+
+// Protect all following API routes
+function requireAuth(req, res, next) {
+    if (req.session && req.session.role) {
+        return next();
+    }
+    res.status(401).json({ error: 'Unauthorized. Please log in.' });
+}
+app.use('/api', requireAuth);
 
 // Initialize Database
 const mysql = require('mysql2/promise');
