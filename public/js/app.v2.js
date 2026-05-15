@@ -9,6 +9,11 @@ let selectedLoginRole = null;
 let currentReportData = null;
 let currentReportDate = null;
 
+// Session Tracking
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+let lastActivityTime = parseInt(localStorage.getItem('roaluxLastActivity')) || Date.now();
+let sessionInterval = null;
+
 const PASSWORDS = {
     manager: 'manager123',
     admin: 'admin123'
@@ -58,9 +63,16 @@ async function init() {
         console.log("Current role:", currentRole);
 
         if (currentRole) {
-            applyRole(currentRole);
-            updateUserCalc();
-            showTab('user-calc');
+            if (Date.now() - lastActivityTime > SESSION_TIMEOUT_MS) {
+                // Session expired since last visit
+                alert("Your session has expired due to inactivity. Please log in again.");
+                logout(true); // pass true to indicate timeout
+            } else {
+                applyRole(currentRole);
+                updateUserCalc();
+                showTab('user-calc');
+                startSessionTimer();
+            }
         } else {
             showTab('login');
         }
@@ -136,8 +148,18 @@ function doLogin() {
     if (pw === PASSWORDS[selectedLoginRole]) {
         currentRole = selectedLoginRole;
         localStorage.setItem('roaluxRole', selectedLoginRole);
+        localStorage.setItem('roaluxLastActivity', Date.now());
+        
+        // Log history
+        fetch('/api/login-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: currentRole, action: 'login' })
+        }).catch(e => console.error(e));
+
         applyRole(selectedLoginRole);
         showTab('user-calc');
+        startSessionTimer();
     } else {
         errEl.style.display = 'block';
         errEl.innerHTML = 'Incorrect password. Please try again.';
@@ -146,14 +168,48 @@ function doLogin() {
     }
 }
 
-function logout() {
+function logout(isTimeout = false) {
+    if (currentRole) {
+        fetch('/api/login-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: currentRole, action: isTimeout ? 'timeout' : 'logout' })
+        }).catch(e => console.error(e));
+    }
+
     currentRole = null;
     selectedLoginRole = null;
     localStorage.removeItem('roaluxRole');
+    localStorage.removeItem('roaluxLastActivity');
+    if (sessionInterval) clearInterval(sessionInterval);
+    
     const pwEl = document.getElementById('admin-pw');
     if (pwEl) pwEl.value = '';
     applyRole(null);
     showTab('login');
+}
+
+// Global Activity Listeners
+function resetActivityTimer() {
+    if (currentRole) {
+        lastActivityTime = Date.now();
+        localStorage.setItem('roaluxLastActivity', lastActivityTime);
+    }
+}
+['click', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => {
+    document.addEventListener(evt, resetActivityTimer, { passive: true });
+});
+
+function startSessionTimer() {
+    if (sessionInterval) clearInterval(sessionInterval);
+    sessionInterval = setInterval(() => {
+        if (!currentRole) return;
+        const lastAct = parseInt(localStorage.getItem('roaluxLastActivity')) || Date.now();
+        if (Date.now() - lastAct > SESSION_TIMEOUT_MS) {
+            alert("Your session has expired due to 15 minutes of inactivity. Please log in again.");
+            logout(true);
+        }
+    }, 30000); // Check every 30 seconds
 }
 
 function applyRole(role) {
@@ -191,7 +247,7 @@ function applyRole(role) {
 // TABS
 // ------------------------------------------
 function showTab(t) {
-    const tabs = ['user-calc', 'login', 'items', 'products', 'estimate', 'stock', 'create-product', 'history', 'purchases', 'reports'];
+    const tabs = ['user-calc', 'login', 'items', 'products', 'estimate', 'stock', 'create-product', 'history', 'purchases', 'reports', 'logins'];
 
     if (!currentRole && (t === 'stock' || t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
         t = 'login'; resetLoginForm();
@@ -229,6 +285,36 @@ function showTab(t) {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('report-date').value = today;
         renderDailyReport(today);
+    }
+    if (t === 'logins') {
+        renderLoginHistory();
+    }
+}
+
+async function renderLoginHistory() {
+    const tb = document.getElementById('logins-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+    try {
+        const res = await fetch('/api/login-history');
+        const rows = await res.json();
+        if (!rows || rows.length === 0) {
+            tb.innerHTML = '<tr><td colspan="3" class="empty">No login history available.</td></tr>';
+            return;
+        }
+        tb.innerHTML = rows.map(r => {
+            let actColor = 'var(--ink)';
+            if (r.action === 'login') actColor = 'var(--green)';
+            if (r.action === 'logout') actColor = 'var(--muted)';
+            if (r.action === 'timeout') actColor = 'var(--danger)';
+            return `<tr>
+                <td>${new Date(r.created_at).toLocaleString('en-GB')}</td>
+                <td><span style="text-transform:capitalize;font-weight:600">${r.role}</span></td>
+                <td style="color:${actColor};font-weight:600;text-transform:capitalize">${r.action}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tb.innerHTML = '<tr><td colspan="3" class="empty">Error loading history.</td></tr>';
     }
 }
 

@@ -118,6 +118,11 @@
                         <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3h12v12H3z"/><path d="M7 12V7M11 12V4"/></svg></span>
                         Daily Reports
                     </button>
+                    <div class="nav-label">System</div>
+                    <button class="nav-item" onclick="showTab('logins')" id="nav-logins">
+                        <span class="nav-icon"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="5" r="3"/><path d="M2 16c0-3 3-5 7-5s7 2 7 5"/></svg></span>
+                        Login History
+                    </button>
                 </div>
             </nav>
 
@@ -500,6 +505,19 @@
             <div id="tab-history" style="display:none" class="anim">
                 <div class="page-header"><div class="page-title">Batch History</div></div>
                 <div class="card"><div class="table-wrap"><table><thead><tr><th>Batch #</th><th>Date / Time</th><th>Product [Code]</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody id="history-tbody"></tbody></table></div></div>
+            </div>
+
+            <!-- LOGIN HISTORY -->
+            <div id="tab-logins" style="display:none" class="anim">
+                <div class="page-header"><div class="page-title">Login History</div></div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Date / Time</th><th>Role</th><th>Action</th></tr></thead>
+                            <tbody id="logins-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
         </main>

@@ -94,6 +94,15 @@ async function initDb() {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS login_history (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                role VARCHAR(50) NOT NULL,
+                action VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         console.log('Tables checked/created successfully.');
         connection.release();
     } catch (error) {
@@ -485,6 +494,26 @@ app.get('/api/reports/daily', async (req, res) => {
             rmUsage: Object.entries(rmUsage).map(([name, data]) => ({ name, ...data })),
             modifications: mods
         });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API Endpoints - Login History
+app.get('/api/login-history', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM login_history ORDER BY created_at DESC LIMIT 100');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/login-history', async (req, res) => {
+    const { role, action } = req.body;
+    try {
+        await pool.query('INSERT INTO login_history (role, action) VALUES (?, ?)', [role, action]);
+        res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
