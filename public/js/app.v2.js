@@ -55,12 +55,16 @@ async function init() {
         products = await prodsRes.json();
         
         if (items.error) {
-            alert("Error loading raw materials: " + items.error);
+            if (itemsRes.status !== 401 && !isSessionAlertShowing) {
+                alert("Error loading raw materials: " + items.error);
+            }
             console.error("Items Error:", items.error);
             return;
         }
         if (products.error) {
-            alert("Error loading products: " + products.error);
+            if (prodsRes.status !== 401 && !isSessionAlertShowing) {
+                alert("Error loading products: " + products.error);
+            }
             console.error("Products Error:", products.error);
             return;
         }
