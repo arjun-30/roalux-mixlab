@@ -1,5 +1,4 @@
 // DATA & STATE
-console.log("Roalux MixLab App v2.js loading...");
 // ------------------------------------------
 let items = [];       // raw materials with price info (admin sets base price)
 let products = [];    // product recipes
