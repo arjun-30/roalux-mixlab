@@ -16,14 +16,21 @@ let sessionInterval = null;
 
 // Global Fetch Interceptor to handle 401 Unauthorized globally
 const originalFetch = window.fetch;
+let isSessionAlertShowing = false;
+
 window.fetch = function() {
     var args = arguments;
     return originalFetch.apply(this, args).then(function(response) {
         if (response.status === 401) {
             var url = args[0];
             if (typeof url === 'string' && url.indexOf('/api/login') === -1) {
-                alert('Your session has expired or is invalid. Please log in again.');
-                logout(true);
+                if (!isSessionAlertShowing) {
+                    isSessionAlertShowing = true;
+                    alert('Your session has expired or is invalid. Please log in again.');
+                    logout(true);
+                    // Reset flag after a short delay to allow future legitimate alerts
+                    setTimeout(() => { isSessionAlertShowing = false; }, 2000);
+                }
             }
         }
         return response;
@@ -76,8 +83,12 @@ async function init() {
         if (currentRole) {
             if (Date.now() - lastActivityTime > SESSION_TIMEOUT_MS) {
                 // Session expired since last visit
-                alert("Your session has expired due to inactivity. Please log in again.");
-                logout(true); // pass true to indicate timeout
+                if (!isSessionAlertShowing) {
+                    isSessionAlertShowing = true;
+                    alert("Your session has expired due to inactivity. Please log in again.");
+                    logout(true); // pass true to indicate timeout
+                    setTimeout(() => { isSessionAlertShowing = false; }, 2000);
+                }
             } else {
                 applyRole(currentRole);
                 updateUserCalc();
@@ -234,8 +245,12 @@ function startSessionTimer() {
         if (!currentRole) return;
         const lastAct = parseInt(localStorage.getItem('roaluxLastActivity')) || Date.now();
         if (Date.now() - lastAct > SESSION_TIMEOUT_MS) {
-            alert("Your session has expired due to 15 minutes of inactivity. Please log in again.");
-            logout(true);
+            if (!isSessionAlertShowing) {
+                isSessionAlertShowing = true;
+                alert("Your session has expired due to 15 minutes of inactivity. Please log in again.");
+                logout(true);
+                setTimeout(() => { isSessionAlertShowing = false; }, 2000);
+            }
         }
     }, 30000); // Check every 30 seconds
 }
