@@ -14,6 +14,40 @@ const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 let lastActivityTime = parseInt(localStorage.getItem('roaluxLastActivity')) || Date.now();
 let sessionInterval = null;
 
+// Notification System
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = '';
+    if (type === 'success') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+    else if (type === 'error') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    else if (type === 'warning') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+    else icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+
+    toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-message">${message}</div>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto remove
+    const timer = setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+
+    toast.onclick = () => {
+        clearTimeout(timer);
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    };
+}
+
 // Global Fetch Interceptor to handle 401 Unauthorized globally
 const originalFetch = window.fetch;
 let isSessionAlertShowing = false;
@@ -23,12 +57,12 @@ window.fetch = function() {
     return originalFetch.apply(this, args).then(function(response) {
         if (response.status === 401) {
             var url = args[0];
-            if (typeof url === 'string' && url.indexOf('/api/login') === -1) {
+            // Only alert if we were actually logged in and this isn't the login request itself
+            if (typeof url === 'string' && url.indexOf('/api/login') === -1 && currentRole) {
                 if (!isSessionAlertShowing) {
                     isSessionAlertShowing = true;
-                    alert('Your session has expired or is invalid. Please log in again.');
+                    showNotification('Your session has expired. Please log in again.', 'warning');
                     logout(true);
-                    // Reset flag after a short delay to allow future legitimate alerts
                     setTimeout(() => { isSessionAlertShowing = false; }, 2000);
                 }
             }
@@ -45,27 +79,32 @@ function formatDate(date) {
 // INIT
 // ------------------------------------------
 async function init() {
+    // If not logged in, just show login screen without fetching
+    if (!currentRole) {
+        showTab('login');
+        return;
+    }
+
     try {
         const [itemsRes, prodsRes, stocksRes] = await Promise.all([
             fetch('/api/items'),
             fetch('/api/products'),
             fetch('/api/stocks').catch(() => ({ json: () => ({}) }))
         ]);
+        
         items = await itemsRes.json();
         products = await prodsRes.json();
         
         if (items.error) {
-            if (itemsRes.status !== 401 && !isSessionAlertShowing) {
-                alert("Error loading raw materials: " + items.error);
+            if (itemsRes.status !== 401) {
+                showNotification("Error loading raw materials: " + items.error, 'error');
             }
-            console.error("Items Error:", items.error);
             return;
         }
         if (products.error) {
-            if (prodsRes.status !== 401 && !isSessionAlertShowing) {
-                alert("Error loading products: " + products.error);
+            if (prodsRes.status !== 401) {
+                showNotification("Error loading products: " + products.error, 'error');
             }
-            console.error("Products Error:", products.error);
             return;
         }
 
@@ -77,35 +116,25 @@ async function init() {
         renderStock();
         updateNavCounts();
         renderLowStockAlerts();
-
-        // Initialize User Calc split dropdowns
         populateAllSelects();
 
-        console.log("Init successful. Items:", items.length, "Products:", products.length);
-        console.log("Current role:", currentRole);
-
-        if (currentRole) {
-            if (Date.now() - lastActivityTime > SESSION_TIMEOUT_MS) {
-                // Session expired since last visit
-                if (!isSessionAlertShowing) {
-                    isSessionAlertShowing = true;
-                    alert("Your session has expired due to inactivity. Please log in again.");
-                    logout(true); // pass true to indicate timeout
-                    setTimeout(() => { isSessionAlertShowing = false; }, 2000);
-                }
-            } else {
-                applyRole(currentRole);
-                updateUserCalc();
-                showTab('user-calc');
-                startSessionTimer();
+        if (Date.now() - lastActivityTime > SESSION_TIMEOUT_MS) {
+            if (!isSessionAlertShowing) {
+                isSessionAlertShowing = true;
+                showNotification("Your session has expired due to inactivity.", 'warning');
+                logout(true);
+                setTimeout(() => { isSessionAlertShowing = false; }, 2000);
             }
         } else {
-            showTab('login');
+            applyRole(currentRole);
+            updateUserCalc();
+            showTab('user-calc');
+            startSessionTimer();
         }
     } catch (e) {
         console.error("Init failed:", e);
         items = []; products = []; stocks = {};
-        alert("Initialization failed: " + e.message);
+        showNotification("Connection failed. Please check your internet.", 'error');
     }
 }
 init();
@@ -194,8 +223,10 @@ async function doLogin() {
             }).catch(e => console.error(e));
 
             applyRole(selectedLoginRole);
+            await init();
             showTab('user-calc');
             startSessionTimer();
+            showNotification(`Welcome back, ${selectedLoginRole}!`, 'success');
         } else {
             errEl.style.display = 'block';
             errEl.innerHTML = data.error || 'Incorrect password. Please try again.';
@@ -251,7 +282,7 @@ function startSessionTimer() {
         if (Date.now() - lastAct > SESSION_TIMEOUT_MS) {
             if (!isSessionAlertShowing) {
                 isSessionAlertShowing = true;
-                alert("Your session has expired due to 15 minutes of inactivity. Please log in again.");
+                showNotification("Session expired due to 15 minutes of inactivity.", 'warning');
                 logout(true);
                 setTimeout(() => { isSessionAlertShowing = false; }, 2000);
             }
@@ -563,8 +594,8 @@ async function addStock() {
     const addQty = parseFloat(qtyEl.value);
     const purchasePrice = parseFloat(priceEl.value);
 
-    if (!itemId) { alert('Please select a material'); return; }
-    if (isNaN(addQty) || addQty <= 0) { alert('Please enter a valid quantity to add'); return; }
+    if (!itemId) { showNotification('Please select a material', 'warning'); return; }
+    if (isNaN(addQty) || addQty <= 0) { showNotification('Please enter a valid quantity to add', 'warning'); return; }
 
     const cur = getStock(itemId);
     const it = items.find(x => x.id === itemId);
@@ -609,7 +640,7 @@ async function addStock() {
 }
 
 async function deductStock(itemId, qty) {
-    if (isNaN(qty) || qty <= 0) { alert('Enter a valid quantity to deduct'); return; }
+    if (isNaN(qty) || qty <= 0) { showNotification('Enter a valid quantity to deduct', 'warning'); return; }
     if (!confirm(`Deduct ${qty} from stock? This cannot be undone.`)) return;
     const cur = getStock(itemId);
     const newQty = Math.max(0, cur.qty - qty);
@@ -702,7 +733,7 @@ async function addItem() {
             document.getElementById('item-price').value = '';
         } else {
             const data = await res.json();
-            alert(data.error || "Failed to add item.");
+            showNotification(data.error || "Failed to add item.", 'error');
         }
     } catch (e) { }
 }
@@ -728,7 +759,7 @@ async function updateItemPrice(id, newPrice) {
         });
         if (!res.ok) {
             const data = await res.json();
-            alert(data.error || "Failed to update item price.");
+            showNotification(data.error || "Failed to update item price.", 'error');
             return;
         }
         it.price = p;
@@ -748,7 +779,7 @@ async function updateItemName(id, newName) {
         });
         if (!res.ok) {
             const data = await res.json();
-            alert(data.error || "Failed to update item name.");
+            showNotification(data.error || "Failed to update item name.", 'error');
             return;
         }
         it.name = name;
@@ -767,7 +798,7 @@ async function updateItemCode(id, newCode) {
         });
         if (!res.ok) {
             const data = await res.json();
-            alert(data.error || "Failed to update item code.");
+            showNotification(data.error || "Failed to update item code.", 'error');
             return;
         }
         it.code = code;
@@ -820,7 +851,7 @@ function openRmModal(id) {
         const code = document.getElementById('modal-item-code').value.trim().toUpperCase();
         const threshold = parseFloat(document.getElementById('modal-item-threshold').value) || 0;
         
-        if (!name) { alert('Name cannot be empty'); return; }
+        if (!name) { showNotification('Name cannot be empty', 'warning'); return; }
         
         try {
             const res = await fetch(`/api/items/${id}`, {
@@ -830,7 +861,7 @@ function openRmModal(id) {
             });
             if (!res.ok) {
                 const data = await res.json();
-                alert(data.error || "Failed to update item.");
+                showNotification(data.error || "Failed to update item.", 'error');
                 return;
             }
             it.name = name;
@@ -883,11 +914,11 @@ async function addProduct() {
     const viscosity = document.getElementById('prod-viscosity').value.trim();
     const desc = JSON.stringify({ gloss, viscosity });
     if (!name || isNaN(batch) || batch <= 0) {
-        alert("Please provide a valid product name and batch size.");
+        showNotification("Please provide a valid product name and batch size.", 'warning');
         return;
     }
     if (typeof draftStages !== 'undefined' && draftStages.length === 0) {
-        alert("Please add at least one stage and material before saving.");
+        showNotification("Please add at least one stage and material before saving.", 'warning');
         return;
     }
     
@@ -901,7 +932,7 @@ async function addProduct() {
         }
     });
     if (hasPending) {
-        alert("You have entered a material and quantity but forgot to click '+ Add'.\nPlease click '+ Add' to include it in the recipe before saving!");
+        showNotification("You have entered a material and quantity but forgot to click '+ Add'. Please click '+ Add' to include it in the recipe before saving!", 'warning');
         return;
     }
     if (typeof draftStages !== 'undefined') {
@@ -912,7 +943,7 @@ async function addProduct() {
         }));
         if (Math.abs(currentSum - batch) > 0.001) {
             const diff = batch - currentSum;
-            alert(`Cannot save product. The recipe is not balanced!\n\nThe total material sum is ${currentSum.toFixed(2)} kg, but the Target Batch is ${batch} kg.`);
+            showNotification(`Cannot save product. The recipe is not balanced! The total material sum is ${currentSum.toFixed(2)} kg, but the Target Batch is ${batch} kg.`, 'error');
             return;
         }
     }
@@ -955,10 +986,10 @@ async function addProduct() {
             renderProducts();
             showTab('products');
             
-            alert(method === 'PUT' ? "Product updated successfully!" : "Product created successfully!");
+            showNotification(method === 'PUT' ? "Product updated successfully!" : "Product created successfully!", 'success');
         } else {
             const data = await res.json();
-            alert(data.error || "Failed to save product.");
+            showNotification(data.error || "Failed to save product.", 'error');
         }
     } catch (e) { }
 }
@@ -1160,8 +1191,8 @@ function addStageItem(pid, sid) {
     const itemIdStr = input.getAttribute('data-id');
     const qty = parseFloat(qtyEl.value);
 
-    if (!itemIdStr) { alert('Please select a material from the search list.'); return; }
-    if (isNaN(qty) || qty <= 0) { alert('Please enter a valid quantity.'); return; }
+    if (!itemIdStr) { showNotification('Please select a material from the search list.', 'warning'); return; }
+    if (isNaN(qty) || qty <= 0) { showNotification('Please enter a valid quantity.', 'warning'); return; }
 
     const itemId = parseInt(itemIdStr);
     const p = getTargetProduct(pid); if (!p) return;
@@ -1175,7 +1206,7 @@ function addStageItem(pid, sid) {
     }));
     
     if (currentSum + qty > batch) {
-        alert(`Cannot add material. The total would exceed the target batch size of ${batch} kg!\nCurrent total is ${currentSum.toFixed(2)} kg.`);
+        showNotification(`Cannot add material. The total would exceed the target batch size of ${batch} kg! Current total is ${currentSum.toFixed(2)} kg.`, 'error');
         return;
     }
 
@@ -1554,10 +1585,10 @@ async function completeBatch(id) {
         if (data.success) {
             renderHistory();
         } else {
-            alert('Error: ' + data.error);
+            showNotification('Error: ' + data.error, 'error');
         }
     } catch (e) {
-        alert('Error completing batch');
+        showNotification('Error completing batch', 'error');
     }
 }
 
@@ -1831,7 +1862,7 @@ async function consumeProductStock(btn) {
         btn.innerHTML = originalText;
     } catch (err) {
         console.error(err);
-        alert('Error: ' + err.message);
+        showNotification('Error: ' + err.message, 'error');
         btn.disabled = false;
         btn.innerHTML = 'Retry Stock Reduction';
     }
@@ -2326,7 +2357,7 @@ function addPurchaseItemToDraft() {
     if (!itemId || isNaN(qty) || qty <= 0 || isNaN(price)) return;
     const it = items.find(x => x.id == itemId);
     if (!it) {
-        alert("Selected material not found. Please re-select from the list.");
+        showNotification("Selected material not found. Please re-select from the list.", 'warning');
         return;
     }
     const packSize = parseFloat(document.getElementById('purch-pack-size').value) || 1;
@@ -2374,7 +2405,7 @@ function renderDraftPurchaseItems() {
 async function confirmBulkPurchase() {
     const vendor = document.getElementById('purch-vendor-bulk').value.trim();
     const reference = document.getElementById('purch-ref-bulk') ? document.getElementById('purch-ref-bulk').value.trim() : '';
-    if (!vendor) { alert("Enter Vendor Name."); return; }
+    if (!vendor) { showNotification("Enter Vendor Name.", 'warning'); return; }
     if (!draftPurchaseItems.length) return;
     try {
         const res = await fetch('/api/purchases', {
@@ -2457,7 +2488,7 @@ async function renderDailyReport(date) {
 }
 
 function exportPurchasesPDF() {
-    if (!currentReportData) { alert("No report data to export."); return; }
+    if (!currentReportData) { showNotification("No report data to export.", 'info'); return; }
     const data = currentReportData;
     const dateStr = currentReportDate || new Date().toISOString().split('T')[0];
     const dateFormatted = formatDate(dateStr);
@@ -2711,8 +2742,8 @@ function exportPurchaseSlipPDF() {
     const vendor = document.getElementById('purch-vendor-bulk').value.trim();
     const reference = document.getElementById('purch-ref-bulk') ? document.getElementById('purch-ref-bulk').value.trim() : '';
     
-    if (!vendor) { alert("Enter Vendor Name."); return; }
-    if (!draftPurchaseItems.length) { alert("No items in the purchase list."); return; }
+    if (!vendor) { showNotification("Enter Vendor Name.", 'warning'); return; }
+    if (!draftPurchaseItems.length) { showNotification("No items in the purchase list.", 'warning'); return; }
     
     const dateFormatted = formatDate(new Date());
     let total = 0;
