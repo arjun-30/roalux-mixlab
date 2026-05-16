@@ -16,16 +16,18 @@ let sessionInterval = null;
 
 // Global Fetch Interceptor to handle 401 Unauthorized globally
 const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-    const response = await originalFetch.apply(this, args);
-    if (response.status === 401) {
-        const url = args[0];
-        if (typeof url === 'string' && !url.includes('/api/login')) {
-            alert('Your session has expired or is invalid. Please log in again.');
-            logout(true); // force local logout
+window.fetch = function() {
+    var args = arguments;
+    return originalFetch.apply(this, args).then(function(response) {
+        if (response.status === 401) {
+            var url = args[0];
+            if (typeof url === 'string' && url.indexOf('/api/login') === -1) {
+                alert('Your session has expired or is invalid. Please log in again.');
+                logout(true);
+            }
         }
-    }
-    return response;
+        return response;
+    });
 };
 
 function formatDate(date) {
