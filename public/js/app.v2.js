@@ -143,7 +143,7 @@ function selectRole(role) {
     }
 }
 
-function doLogin() {
+async function doLogin() {
     if (!selectedLoginRole) {
         document.getElementById('login-error').style.display = 'block';
         document.getElementById('login-error').innerHTML = 'Please select a role first.';
