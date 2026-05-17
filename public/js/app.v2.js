@@ -380,14 +380,27 @@ async function renderLoginHistory() {
     
     try {
         const res = await fetch('/api/login-history');
-        const rows = await res.json();
+        let rows = await res.json();
+        
+        // Check if a date filter is selected
+        const dateFilterInput = document.getElementById('login-history-date');
+        let isFiltered = false;
+        if (dateFilterInput && dateFilterInput.value) {
+            isFiltered = true;
+            const filterDateStr = dateFilterInput.value; // YYYY-MM-DD format
+            rows = rows.filter(r => {
+                const d = new Date(r.created_at);
+                const rowDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                return rowDateStr === filterDateStr;
+            });
+        }
         
         const adminRows = rows.filter(r => r.role === 'admin');
         const managerRows = rows.filter(r => r.role === 'manager');
         
         const renderRows = (data, tbody) => {
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" class="empty">No logins recorded.</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="2" class="empty">${isFiltered ? 'No logins recorded for this date.' : 'No logins recorded.'}</td></tr>`;
                 return;
             }
             tbody.innerHTML = data.map(r => {
@@ -408,6 +421,14 @@ async function renderLoginHistory() {
     } catch (e) {
         adminTb.innerHTML = '<tr><td colspan="2" class="empty">Error loading history.</td></tr>';
         managerTb.innerHTML = '<tr><td colspan="2" class="empty">Error loading history.</td></tr>';
+    }
+}
+
+function clearLoginHistoryDateFilter() {
+    const dateFilterInput = document.getElementById('login-history-date');
+    if (dateFilterInput) {
+        dateFilterInput.value = '';
+        renderLoginHistory();
     }
 }
 
