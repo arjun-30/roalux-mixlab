@@ -366,6 +366,12 @@ function showTab(t) {
         renderDailyReport(today);
     }
     if (t === 'logins') {
+        const dateInput = document.getElementById('login-history-date');
+        if (dateInput && !dateInput.value) {
+            const d = new Date();
+            const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            dateInput.value = today;
+        }
         renderLoginHistory();
     }
 }
