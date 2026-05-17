@@ -556,6 +556,15 @@ app.post('/api/login-history', async (req, res) => {
     }
 });
 
+app.delete('/api/login-history', async (req, res) => {
+    try {
+        await pool.query('TRUNCATE TABLE login_history');
+        res.json({ success: true, message: 'Login history cleared' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });

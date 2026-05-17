@@ -213,7 +213,8 @@ async function doLogin() {
         if (res.ok && data.success) {
             currentRole = selectedLoginRole;
             localStorage.setItem('roaluxRole', selectedLoginRole);
-            localStorage.setItem('roaluxLastActivity', Date.now());
+            lastActivityTime = Date.now();
+            localStorage.setItem('roaluxLastActivity', lastActivityTime);
             
             // Log history
             fetch('/api/login-history', {
@@ -327,7 +328,7 @@ function applyRole(role) {
 function showTab(t) {
     const tabs = ['user-calc', 'login', 'items', 'products', 'estimate', 'stock', 'create-product', 'history', 'purchases', 'reports', 'logins'];
 
-    if (!currentRole && (t === 'stock' || t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
+    if (!currentRole && t !== 'login') {
         t = 'login'; resetLoginForm();
     }
 
@@ -370,30 +371,43 @@ function showTab(t) {
 }
 
 async function renderLoginHistory() {
-    const tb = document.getElementById('logins-tbody');
-    if (!tb) return;
-    tb.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+    const adminTb = document.getElementById('logins-admin-tbody');
+    const managerTb = document.getElementById('logins-manager-tbody');
+    if (!adminTb || !managerTb) return;
+    
+    adminTb.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
+    managerTb.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
+    
     try {
         const res = await fetch('/api/login-history');
         const rows = await res.json();
-        if (!rows || rows.length === 0) {
-            tb.innerHTML = '<tr><td colspan="3" class="empty">No login history available.</td></tr>';
-            return;
-        }
-        tb.innerHTML = rows.map(r => {
-            let actColor = 'var(--ink)';
-            let displayAction = r.action;
-            if (r.action === 'login') actColor = 'var(--green)';
-            if (r.action === 'logout') { actColor = 'var(--muted)'; displayAction = 'Logged Out'; }
-            if (r.action === 'timeout') { actColor = 'var(--danger)'; displayAction = 'Timed Out'; }
-            return `<tr>
-                <td>${new Date(r.created_at).toLocaleString('en-GB')}</td>
-                <td><span style="text-transform:capitalize;font-weight:600">${r.role}</span></td>
-                <td style="color:${actColor};font-weight:600;text-transform:capitalize">${displayAction}</td>
-            </tr>`;
-        }).join('');
+        
+        const adminRows = rows.filter(r => r.role === 'admin');
+        const managerRows = rows.filter(r => r.role === 'manager');
+        
+        const renderRows = (data, tbody) => {
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="empty">No logins recorded.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(r => {
+                let actColor = 'var(--ink)';
+                let displayAction = r.action;
+                if (r.action === 'login') actColor = 'var(--green)';
+                if (r.action === 'logout') { actColor = 'var(--muted)'; displayAction = 'Logged Out'; }
+                if (r.action === 'timeout') { actColor = 'var(--danger)'; displayAction = 'Timed Out'; }
+                return `<tr>
+                    <td>${new Date(r.created_at).toLocaleString('en-GB')}</td>
+                    <td style="color:${actColor};font-weight:600;text-transform:capitalize">${displayAction}</td>
+                </tr>`;
+            }).join('');
+        };
+        
+        renderRows(adminRows, adminTb);
+        renderRows(managerRows, managerTb);
     } catch (e) {
-        tb.innerHTML = '<tr><td colspan="3" class="empty">Error loading history.</td></tr>';
+        adminTb.innerHTML = '<tr><td colspan="2" class="empty">Error loading history.</td></tr>';
+        managerTb.innerHTML = '<tr><td colspan="2" class="empty">Error loading history.</td></tr>';
     }
 }
 

@@ -9,3 +9,6 @@ WHERE itemId != (SELECT id FROM items WHERE code = 'LC-08');
 UPDATE stocks 
 SET qty = 0, avgPrice = 0 
 WHERE itemId != (SELECT id FROM items WHERE code = 'LC-08');
+
+-- 3. Clear all login history logs
+TRUNCATE TABLE login_history;

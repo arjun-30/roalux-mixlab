@@ -40,6 +40,10 @@ async function run() {
         const [updateRes] = await connection.query('UPDATE stocks SET qty = 0, avgPrice = 0 WHERE itemId != ?', [lc08Id]);
         console.log(`Updated ${updateRes.affectedRows} rows in stocks to 0 qty.`);
 
+        console.log("Clearing all login history logs...");
+        await connection.query('TRUNCATE TABLE login_history');
+        console.log("Login history cleared.");
+
         connection.release();
         console.log("Done.");
         process.exit(0);

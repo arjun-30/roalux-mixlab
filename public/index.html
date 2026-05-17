@@ -509,13 +509,40 @@
 
             <!-- LOGIN HISTORY -->
             <div id="tab-logins" style="display:none" class="anim">
-                <div class="page-header"><div class="page-title">Login History</div></div>
-                <div class="card">
-                    <div class="table-wrap">
-                        <table>
-                            <thead><tr><th>Date / Time</th><th>Role</th><th>Action</th></tr></thead>
-                            <tbody id="logins-tbody"></tbody>
-                        </table>
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Login History</div>
+                        <div class="page-subtitle">Track admin and manager activity logs</div>
+                    </div>
+                </div>
+                
+                <div class="logins-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+                    <!-- ADMIN LOGINS -->
+                    <div class="card" style="border: 1px solid var(--slate3); padding:0; overflow:hidden;">
+                        <div style="padding:16px 20px; background:var(--slate); border-bottom:1px solid var(--slate2); display:flex; align-items:center; gap:8px;">
+                            <span class="chip chip-blue" style="background:#1e3a8a; color:#fff; font-weight:700; font-size:10px; padding:3px 8px; border-radius:4px;">ADMIN</span>
+                            <strong style="color:var(--ink); font-size:14px; font-family:var(--font-display);">Activity Log</strong>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr><th>Date / Time</th><th>Action</th></tr></thead>
+                                <tbody id="logins-admin-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- MANAGER LOGINS -->
+                    <div class="card" style="border: 1px solid var(--slate3); padding:0; overflow:hidden;">
+                        <div style="padding:16px 20px; background:var(--slate); border-bottom:1px solid var(--slate2); display:flex; align-items:center; gap:8px;">
+                            <span class="chip chip-blue" style="background:#b45309; color:#fff; font-weight:700; font-size:10px; padding:3px 8px; border-radius:4px;">MANAGER</span>
+                            <strong style="color:var(--ink); font-size:14px; font-family:var(--font-display);">Activity Log</strong>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr><th>Date / Time</th><th>Action</th></tr></thead>
+                                <tbody id="logins-manager-tbody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
