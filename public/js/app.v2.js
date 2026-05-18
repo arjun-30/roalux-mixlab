@@ -361,13 +361,14 @@ function showTab(t) {
     if (t === 'history') { renderHistory(); }
     if (t === 'purchases') { renderPurchases(); }
     if (t === 'reports') {
-        const today = new Date().toISOString().split('T')[0];
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         document.getElementById('report-date').value = today;
         renderDailyReport(today);
     }
     if (t === 'logins') {
         const dateInput = document.getElementById('login-history-date');
-        if (dateInput && !dateInput.value) {
+        if (dateInput) {
             const d = new Date();
             const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             dateInput.value = today;
