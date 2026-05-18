@@ -10,7 +10,7 @@ let currentReportData = null;
 let currentReportDate = null;
 
 // Session Tracking
-const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 let lastActivityTime = parseInt(localStorage.getItem('roaluxLastActivity')) || Date.now();
 let sessionInterval = null;
 
@@ -283,7 +283,7 @@ function startSessionTimer() {
         if (Date.now() - lastAct > SESSION_TIMEOUT_MS) {
             if (!isSessionAlertShowing) {
                 isSessionAlertShowing = true;
-                showNotification("Session expired due to 15 minutes of inactivity.", 'warning');
+                showNotification("Session expired due to 30 minutes of inactivity.", 'warning');
                 logout(true);
                 setTimeout(() => { isSessionAlertShowing = false; }, 2000);
             }
