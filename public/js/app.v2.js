@@ -2332,11 +2332,12 @@ async function renderPurchases() {
         const res = await fetch('/api/purchases');
         const data = await res.json();
         
-        // Group by vendor/reference
+        // Group by purchase_no or fallback to vendor/reference/time
         const groupedPurchases = {};
         data.forEach(p => {
             let vendor = p.vendor || 'Unknown Vendor';
             let ref = p.reference || '';
+            const purchaseNo = p.purchase_no || 0;
             
             // Backwards compatibility for old records with "vendor (Ref: ...)" format
             if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
@@ -2345,10 +2346,11 @@ async function renderPurchases() {
                 ref = match[2];
             }
             
-            const key = vendor + '|' + ref + '|' + new Date(p.created_at).getTime().toString().substring(0, 8); // group by approximate time
+            const key = purchaseNo ? String(purchaseNo) : (vendor + '|' + ref + '|' + new Date(p.created_at).getTime().toString().substring(0, 8)); // group by approximate time
             
             if (!groupedPurchases[key]) {
                 groupedPurchases[key] = {
+                    purchase_no: purchaseNo,
                     vendor: vendor,
                     reference: ref,
                     created_at: p.created_at,
@@ -2372,15 +2374,17 @@ async function renderPurchases() {
         currentPurchases = purchasesSummary;
         
         if (!purchasesSummary.length) {
-            tb.innerHTML = '<tr><td colspan="5" class="empty">No purchases yet.</td></tr>';
+            tb.innerHTML = '<tr><td colspan="6" class="empty">No purchases yet.</td></tr>';
             return;
         }
         
         tb.innerHTML = purchasesSummary.map((p, i) => {
             const vendor = p.vendor;
             const ref = p.reference || '—';
+            const sNo = p.purchase_no ? '#' + p.purchase_no : '—';
             
             return `<tr onclick="showRecentPurchaseDetails(${i})" style="cursor:pointer;">
+                <td><strong>${sNo}</strong></td>
                 <td>${formatDate(p.created_at)}</td>
                 <td><strong>${esc(vendor)}</strong></td>
                 <td>${esc(ref)}</td>
@@ -2506,15 +2510,17 @@ async function renderDailyReport(date) {
                 ref = match[2];
             }
             if (!ref) ref = '—';
+            const sNo = p.purchase_no ? '#' + p.purchase_no : '—';
             
             return `<tr onclick="showPurchaseDetails(${idx})" style="cursor:pointer;">
+                <td><strong>${sNo}</strong></td>
                 <td>${new Date(p.created_at).toLocaleTimeString()}</td>
                 <td><strong>${esc(vendor)}</strong></td>
                 <td>${esc(ref)}</td>
                 <td>${p.items.length} items</td>
                 <td onclick="event.stopPropagation()"><button class="btn btn-xs btn-ghost" onclick="printReportPurchase(${idx})" style="display:inline-flex; align-items:center; gap:4px; font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2-2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Print</button></td>
             </tr>`;
-        }).join('') || '<tr><td colspan="5" class="empty">No records.</td></tr>';
+        }).join('') || '<tr><td colspan="6" class="empty">No records.</td></tr>';
 
         const ut = document.getElementById('rep-usage-tbody');
         if (!data.rmUsage || !data.rmUsage.length) {
@@ -2668,6 +2674,7 @@ function printPurchaseSlip(p) {
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 24px; font-weight: 800; color: #1e293b;">Purchase Slip</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #64748b;">No: #${p.purchase_no || '—'}</div>
                     <div style="font-size: 14px; font-weight: 600; color: #64748b;">${dateFormatted}</div>
                 </div>
             </div>
@@ -2742,6 +2749,7 @@ function showPurchaseDetailsModal(p) {
                 </div>
                 <div style="padding:20px;">
                     <div style="margin-bottom:15px; font-size:14px; color:var(--muted);">
+                        <div><strong>Purchase No:</strong> #${p.purchase_no || '—'}</div>
                         <div><strong>Vendor:</strong> ${esc(vendor)}</div>
                         <div><strong>Reference:</strong> ${esc(ref)}</div>
                         <div><strong>Time:</strong> ${new Date(p.created_at).toLocaleTimeString()}</div>
@@ -2827,6 +2835,7 @@ function exportPurchaseSlipPDF() {
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 24px; font-weight: 800; color: #1e293b;">Purchase Slip</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #64748b;">No: Draft</div>
                     <div style="font-size: 14px; font-weight: 600; color: #64748b;">${dateFormatted}</div>
                 </div>
             </div>

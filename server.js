@@ -140,6 +140,55 @@ async function initDb() {
             )
         `);
 
+        // Check if purchase_no column exists in stock_batches, and add if not
+        const [columns] = await connection.query('SHOW COLUMNS FROM stock_batches LIKE "purchase_no"');
+        if (columns.length === 0) {
+            await connection.query('ALTER TABLE stock_batches ADD COLUMN purchase_no INT DEFAULT NULL');
+            console.log('Column "purchase_no" added to "stock_batches" table.');
+            
+            // Perform one-time migration for existing records
+            const [batches] = await connection.query('SELECT * FROM stock_batches ORDER BY created_at ASC, id ASC');
+            if (batches.length > 0) {
+                console.log(`Migrating ${batches.length} existing purchase items...`);
+                // Group by vendor, reference, and approximate time (within 5 seconds)
+                const groups = [];
+                batches.forEach(b => {
+                    const vendor = b.vendor || 'Unknown Vendor';
+                    const ref = b.reference || '';
+                    const time = new Date(b.created_at).getTime();
+                    
+                    let foundGroup = groups.find(g => {
+                        const sameVendor = g.vendor === vendor;
+                        const sameRef = g.reference === ref;
+                        const closeTime = Math.abs(g.time - time) < 5000;
+                        return sameVendor && sameRef && closeTime;
+                    });
+                    
+                    if (foundGroup) {
+                        foundGroup.items.push(b.id);
+                    } else {
+                        groups.push({
+                            vendor,
+                            reference: ref,
+                            time,
+                            items: [b.id]
+                        });
+                    }
+                });
+                
+                // Assign sequential purchase_no to each group
+                for (let i = 0; i < groups.length; i++) {
+                    const purchaseNo = i + 1;
+                    const itemIds = groups[i].items;
+                    await connection.query(
+                        'UPDATE stock_batches SET purchase_no = ? WHERE id IN (?)',
+                        [purchaseNo, itemIds]
+                    );
+                }
+                console.log(`Successfully migrated ${groups.length} purchase transactions.`);
+            }
+        }
+
         console.log('Tables checked/created successfully.');
         connection.release();
     } catch (error) {
@@ -369,35 +418,46 @@ app.post('/api/stocks', async (req, res) => {
 
 app.post('/api/purchases', async (req, res) => {
     const payload = req.body; // Array of { itemId, qty, price, vendor, reference, packSize, packs }
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
+
+        // Determine next purchase_no
+        const [maxRow] = await connection.query('SELECT MAX(purchase_no) as maxVal FROM stock_batches');
+        const nextPurchaseNo = (maxRow[0].maxVal || 0) + 1;
+
         for (const item of payload) {
             const { itemId, qty, price, vendor, reference, packSize, packs } = item;
             
             // Insert into stock_batches
-            await pool.query(
-                'INSERT INTO stock_batches (itemId, qty, price, vendor, pack_size, packs, reference) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [itemId, qty, price, vendor, packSize, packs, reference]
+            await connection.query(
+                'INSERT INTO stock_batches (itemId, qty, price, vendor, pack_size, packs, reference, purchase_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [itemId, qty, price, vendor, packSize, packs, reference, nextPurchaseNo]
             );
 
             // Update stocks summary
-            const [current] = await pool.query('SELECT qty, avgPrice FROM stocks WHERE itemId = ?', [itemId]);
+            const [current] = await connection.query('SELECT qty, avgPrice FROM stocks WHERE itemId = ?', [itemId]);
             if (current.length > 0) {
                 const newQty = current[0].qty + qty;
                 // Update to the latest price for FIFO inventory valuation
-                await pool.query(
+                await connection.query(
                     'UPDATE stocks SET qty = ?, avgPrice = ? WHERE itemId = ?',
                     [newQty, price, itemId]
                 );
             } else {
-                await pool.query(
+                await connection.query(
                     'INSERT INTO stocks (itemId, qty, avgPrice) VALUES (?, ?, ?)',
                     [itemId, qty, price]
                 );
             }
         }
-        res.json({ success: true });
+        await connection.commit();
+        res.json({ success: true, purchase_no: nextPurchaseNo });
     } catch (error) {
+        await connection.rollback();
         res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
     }
 });
 
@@ -482,15 +542,22 @@ app.get('/api/reports/daily', async (req, res) => {
             [start, end]
         );
 
-        // Group purchases by vendor and reference
+        // Group purchases by purchase_no or fallback
         const groupedPurchases = {};
         purchases.forEach(p => {
             const vendorName = p.vendor || 'Unknown Vendor';
             const ref = p.reference || '';
-            const key = vendorName + '|||' + ref;
+            const purchaseNo = p.purchase_no || 0;
+            const key = purchaseNo ? String(purchaseNo) : (vendorName + '|||' + ref);
             
             if (!groupedPurchases[key]) {
-                groupedPurchases[key] = { vendor: vendorName, reference: ref, created_at: p.created_at, items: [] };
+                groupedPurchases[key] = {
+                    purchase_no: purchaseNo,
+                    vendor: vendorName,
+                    reference: ref,
+                    created_at: p.created_at,
+                    items: []
+                };
             }
             groupedPurchases[key].items.push({
                 name: p.name,
