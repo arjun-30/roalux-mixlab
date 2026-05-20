@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const app = express();
@@ -25,22 +26,95 @@ app.get('/', (req, res) => {
 });
 
 // Authentication Endpoints
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { role, password } = req.body;
-    if (role === 'manager' && password === process.env.MANAGER_PASSWORD) {
-        req.session.role = 'manager';
-        res.json({ success: true, role: 'manager' });
-    } else if (role === 'admin' && password === process.env.ADMIN_PASSWORD) {
-        req.session.role = 'admin';
-        res.json({ success: true, role: 'admin' });
-    } else {
-        res.status(401).json({ error: 'Invalid password' });
+    try {
+        const [users] = await pool.query('SELECT * FROM users WHERE role = ?', [role]);
+        if (users.length === 0) {
+            return res.status(401).json({ error: 'Invalid role' });
+        }
+        
+        const user = users[0];
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (isMatch) {
+            req.session.role = role;
+            res.json({ success: true, role: role });
+        } else {
+            res.status(401).json({ error: 'Invalid password' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/logout', (req, res) => {
     req.session.destroy();
     res.json({ success: true });
+});
+
+// Change Admin's own password
+app.post('/api/admin/change-password', async (req, res) => {
+    if (!req.session || req.session.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized. Only Admin can change password.' });
+    }
+    
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Missing current or new password.' });
+    }
+    
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+        return res.status(400).json({ 
+            error: 'Password must be at least 8 characters long, and contain at least 1 uppercase letter, 1 number, and 1 special character.' 
+        });
+    }
+
+    try {
+        const [users] = await pool.query('SELECT * FROM users WHERE role = "admin"');
+        if (users.length === 0) {
+            return res.status(404).json({ error: 'Admin account not found.' });
+        }
+        
+        const admin = users[0];
+        const isMatch = await bcrypt.compare(currentPassword, admin.password_hash);
+        if (!isMatch) {
+            return res.status(400).json({ error: 'Current password is incorrect.' });
+        }
+        
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await pool.query('UPDATE users SET password_hash = ? WHERE role = "admin"', [newHash]);
+        res.json({ success: true, message: 'Admin password updated successfully.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Change Manager's password (by Admin only)
+app.post('/api/admin/change-manager-password', async (req, res) => {
+    if (!req.session || req.session.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized. Only Admin can reset Manager password.' });
+    }
+    
+    const { newPassword } = req.body;
+    if (!newPassword) {
+        return res.status(400).json({ error: 'Missing new password.' });
+    }
+    
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+        return res.status(400).json({ 
+            error: 'Password must be at least 8 characters long, and contain at least 1 uppercase letter, 1 number, and 1 special character.' 
+        });
+    }
+
+    try {
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await pool.query('UPDATE users SET password_hash = ? WHERE role = "manager"', [newHash]);
+        res.json({ success: true, message: 'Manager password updated successfully.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Protect all following API routes
@@ -187,6 +261,31 @@ async function initDb() {
                 }
                 console.log(`Successfully migrated ${groups.length} purchase transactions.`);
             }
+        }
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                role VARCHAR(50) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Check if admin user exists, seed if not
+        const [admins] = await connection.query('SELECT * FROM users WHERE role = "admin"');
+        if (admins.length === 0) {
+            const adminHash = await bcrypt.hash('admin123', 10);
+            await connection.query('INSERT INTO users (role, password_hash) VALUES ("admin", ?)', [adminHash]);
+            console.log('Seeded default admin account.');
+        }
+
+        // Check if manager user exists, seed if not
+        const [managers] = await connection.query('SELECT * FROM users WHERE role = "manager"');
+        if (managers.length === 0) {
+            const managerHash = await bcrypt.hash('manager123', 10);
+            await connection.query('INSERT INTO users (role, password_hash) VALUES ("manager", ?)', [managerHash]);
+            console.log('Seeded default manager account.');
         }
 
         console.log('Tables checked/created successfully.');

@@ -21,7 +21,7 @@ function showNotification(message, type = 'info') {
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    
+
     let icon = '';
     if (type === 'success') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     else if (type === 'error') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
@@ -52,9 +52,9 @@ function showNotification(message, type = 'info') {
 const originalFetch = window.fetch;
 let isSessionAlertShowing = false;
 
-window.fetch = function() {
+window.fetch = function () {
     var args = arguments;
-    return originalFetch.apply(this, args).then(function(response) {
+    return originalFetch.apply(this, args).then(function (response) {
         if (response.status === 401) {
             var url = args[0];
             // Only alert if we were actually logged in and this isn't the login request itself
@@ -91,10 +91,10 @@ async function init() {
             fetch('/api/products'),
             fetch('/api/stocks').catch(() => ({ json: () => ({}) }))
         ]);
-        
+
         items = await itemsRes.json();
         products = await prodsRes.json();
-        
+
         if (items.error) {
             if (itemsRes.status !== 401) {
                 showNotification("Error loading raw materials: " + items.error, 'error');
@@ -200,22 +200,22 @@ async function doLogin() {
     errEl.style.display = 'none';
 
     const pw = document.getElementById('admin-pw').value;
-    
+
     try {
         const res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: selectedLoginRole, password: pw })
         });
-        
+
         const data = await res.json();
-        
+
         if (res.ok && data.success) {
             currentRole = selectedLoginRole;
             localStorage.setItem('roaluxRole', selectedLoginRole);
             lastActivityTime = Date.now();
             localStorage.setItem('roaluxLastActivity', lastActivityTime);
-            
+
             // Log history
             fetch('/api/login-history', {
                 method: 'POST',
@@ -247,7 +247,7 @@ function logout(isTimeout = false) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: currentRole, action: isTimeout ? 'timeout' : 'logout' })
         }).catch(e => console.error(e));
-        
+
         // Destroy server session
         fetch('/api/logout', { method: 'POST' }).catch(e => console.error(e));
     }
@@ -257,7 +257,7 @@ function logout(isTimeout = false) {
     localStorage.removeItem('roaluxRole');
     localStorage.removeItem('roaluxLastActivity');
     if (sessionInterval) clearInterval(sessionInterval);
-    
+
     const pwEl = document.getElementById('admin-pw');
     if (pwEl) pwEl.value = '';
     applyRole(null);
@@ -326,13 +326,13 @@ function applyRole(role) {
 // TABS
 // ------------------------------------------
 function showTab(t) {
-    const tabs = ['user-calc', 'login', 'items', 'products', 'estimate', 'stock', 'create-product', 'history', 'purchases', 'reports', 'logins'];
+    const tabs = ['user-calc', 'login', 'items', 'products', 'estimate', 'stock', 'create-product', 'history', 'purchases', 'reports', 'logins', 'security'];
 
     if (!currentRole && t !== 'login') {
         t = 'login'; resetLoginForm();
     }
 
-    if (currentRole === 'manager' && (t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product')) {
+    if (currentRole === 'manager' && (t === 'items' || t === 'products' || t === 'estimate' || t === 'create-product' || t === 'security')) {
         t = 'stock';
     }
 
@@ -381,14 +381,14 @@ async function renderLoginHistory() {
     const adminTb = document.getElementById('logins-admin-tbody');
     const managerTb = document.getElementById('logins-manager-tbody');
     if (!adminTb || !managerTb) return;
-    
+
     adminTb.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
     managerTb.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
-    
+
     try {
         const res = await fetch('/api/login-history');
         let rows = await res.json();
-        
+
         // Check if a date filter is selected
         const dateFilterInput = document.getElementById('login-history-date');
         let isFiltered = false;
@@ -401,10 +401,10 @@ async function renderLoginHistory() {
                 return rowDateStr === filterDateStr;
             });
         }
-        
+
         const adminRows = rows.filter(r => r.role === 'admin');
         const managerRows = rows.filter(r => r.role === 'manager');
-        
+
         const renderRows = (data, tbody) => {
             if (!data || data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="2" class="empty">${isFiltered ? 'No logins recorded for this date.' : 'No logins recorded.'}</td></tr>`;
@@ -422,7 +422,7 @@ async function renderLoginHistory() {
                 </tr>`;
             }).join('');
         };
-        
+
         renderRows(adminRows, adminTb);
         renderRows(managerRows, managerTb);
     } catch (e) {
@@ -456,15 +456,15 @@ function effectivePrice(itemId, qtyNeeded = 0) {
 
     if (s.batches && s.batches.length > 0) {
         if (qtyNeeded <= 0) return parseFloat(s.batches[s.batches.length - 1].price) || basePrice;
-        
+
         let remaining = parseFloat(qtyNeeded);
         let totalCost = 0;
-        
+
         // FIFO loop
         for (const b of s.batches) {
             const bQty = parseFloat(b.qty) || 0;
             const bPrice = parseFloat(b.price) || 0;
-            
+
             if (bQty <= 0) continue;
 
             const take = Math.min(remaining, bQty);
@@ -472,14 +472,14 @@ function effectivePrice(itemId, qtyNeeded = 0) {
             remaining -= take;
             if (remaining <= 0.000001) break; // Use epsilon for floats
         }
-        
+
         // If we still need more than what's in batches, use master price for remainder
         if (remaining > 0.000001) {
             totalCost += remaining * basePrice;
         }
         return totalCost / qtyNeeded;
     }
-    
+
     return basePrice;
 }
 
@@ -538,9 +538,9 @@ function renderLowStockAlerts() {
                     </div>
                     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:10px;">
                         ${lowStockItems.map(it => {
-                            const s = getStock(it.id);
-                            const isCritical = s.qty <= 0;
-                            return `
+                const s = getStock(it.id);
+                const isCritical = s.qty <= 0;
+                return `
                                 <div style="background:var(--white); padding:10px; border-radius:8px; border-left:4px solid ${isCritical ? 'var(--danger)' : '#f59e0b'}; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
                                     <div style="font-size:12px; font-weight:700; color:var(--ink);">${esc(it.name)}</div>
                                     <div style="font-size:11px; color:${isCritical ? 'var(--danger)' : '#b45309'}; font-weight:600;">
@@ -548,7 +548,7 @@ function renderLowStockAlerts() {
                                     </div>
                                 </div>
                             `;
-                        }).join('')}
+            }).join('')}
                     </div>
                 </div>
             `;
@@ -700,8 +700,8 @@ async function deductStock(itemId, qty) {
 
 function renderStock() {
     const search = (document.getElementById('stock-search')?.value || '').toLowerCase();
-    const filtered = items.filter(it => 
-        it.name.toLowerCase().includes(search) || 
+    const filtered = items.filter(it =>
+        it.name.toLowerCase().includes(search) ||
         (it.code || '').toLowerCase().includes(search)
     );
     const isAdmin = currentRole === 'admin';
@@ -728,7 +728,7 @@ function renderStock() {
                 <strong>Rs. ${ep.toFixed(2)}</strong>
                 <span style="color:var(--muted);font-size:11px">/${it.unit}</span>
             </div>
-            ${s.batches && s.batches.length > 0 
+            ${s.batches && s.batches.length > 0
                 ? `<div style="font-size:10px;color:var(--brand);margin-top:2px">Latest Purchase</div>`
                 : `<div style="font-size:10px;color:var(--muted);margin-top:2px">Master price</div>`}
         </td>` : '';
@@ -882,19 +882,19 @@ function openRmModal(id) {
     const it = items.find(x => x.id === id);
     if (!it) return;
     const s = getStock(id);
-    
+
     document.getElementById('modal-item-code').value = it.code || '';
     document.getElementById('modal-item-name').value = it.name || '';
     document.getElementById('modal-item-threshold').value = s.threshold || 0;
-    
+
     const saveBtn = document.getElementById('modal-save-btn');
     saveBtn.onclick = async () => {
         const name = document.getElementById('modal-item-name').value.trim();
         const code = document.getElementById('modal-item-code').value.trim().toUpperCase();
         const threshold = parseFloat(document.getElementById('modal-item-threshold').value) || 0;
-        
+
         if (!name) { showNotification('Name cannot be empty', 'warning'); return; }
-        
+
         try {
             const res = await fetch(`/api/items/${id}`, {
                 method: 'PUT',
@@ -908,7 +908,7 @@ function openRmModal(id) {
             }
             it.name = name;
             it.code = code;
-            
+
             // Update threshold
             await fetch('/api/stocks', {
                 method: 'POST',
@@ -916,13 +916,13 @@ function openRmModal(id) {
                 body: JSON.stringify({ itemId: id, qty: s.qty, avgPrice: s.avgPrice, threshold })
             });
             s.threshold = threshold;
-            
+
             closeRmModal();
             renderItems();
             renderStock();
         } catch (e) { }
     };
-    
+
     const deleteBtn = document.getElementById('modal-delete-btn');
     deleteBtn.onclick = async () => {
         if (confirm('Remove this material? It will also be removed from all product stages.')) {
@@ -937,7 +937,7 @@ function openRmModal(id) {
             } catch (e) { }
         }
     };
-    
+
     document.getElementById('rm-modal').style.display = 'flex';
 }
 
@@ -963,7 +963,7 @@ async function addProduct() {
         showNotification("Please add at least one stage and material before saving.", 'warning');
         return;
     }
-    
+
     // Check for pending items not yet added
     let hasPending = false;
     draftStages.forEach(s => {
@@ -992,7 +992,7 @@ async function addProduct() {
     try {
         const url = currentEditingProductId ? `/api/products/${currentEditingProductId}` : '/api/products';
         const method = currentEditingProductId ? 'PUT' : 'POST';
-        
+
         const res = await fetch(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
@@ -1012,14 +1012,14 @@ async function addProduct() {
             document.getElementById('prod-desc').value = '';
             document.getElementById('prod-density').value = '1';
             document.getElementById('prod-group').value = '';
-            
+
             // Reset edit mode
             currentEditingProductId = null;
             const titleEl = document.querySelector('#tab-create-product .page-title');
             if (titleEl) titleEl.innerText = 'New Product';
             const btnEl = document.querySelector('#tab-create-product .btn-primary');
             if (btnEl) btnEl.innerText = '+ Create Product';
-            
+
             const searchInput = document.getElementById('prod-master-search');
             if (searchInput) {
                 searchInput.value = name;
@@ -1027,7 +1027,7 @@ async function addProduct() {
             }
             renderProducts();
             showTab('products');
-            
+
             showNotification(method === 'PUT' ? "Product updated successfully!" : "Product created successfully!", 'success');
         } else {
             const data = await res.json();
@@ -1064,7 +1064,7 @@ let currentEditingProductId = null;
 
 function openCreateProductPage() {
     currentEditingProductId = null;
-    
+
     // Clear fields
     document.getElementById('prod-group').value = '';
     document.getElementById('prod-name').value = '';
@@ -1072,26 +1072,26 @@ function openCreateProductPage() {
     document.getElementById('prod-density').value = '1';
     const descEl = document.getElementById('prod-desc');
     if (descEl) descEl.value = '';
-    
+
     draftStages = [];
     renderDraftStages();
-    
+
     // Reset labels
     const titleEl = document.querySelector('#tab-create-product .page-title');
     if (titleEl) titleEl.innerText = 'New Product';
-    
+
     const btnEl = document.querySelector('#tab-create-product .btn-primary');
     if (btnEl) btnEl.innerText = '+ Create Product';
-    
+
     showTab('create-product');
 }
 
 function openEditProductPage(pid) {
     const p = products.find(x => String(x.id) === String(pid));
     if (!p) return;
-    
+
     currentEditingProductId = p.id;
-    
+
     // Populate fields
     document.getElementById('prod-group').value = p.group_code || '';
     document.getElementById('prod-name').value = p.name || '';
@@ -1099,18 +1099,18 @@ function openEditProductPage(pid) {
     document.getElementById('prod-density').value = p.density || '1';
     const descEl = document.getElementById('prod-desc');
     if (descEl) descEl.value = p.desc || '';
-    
+
     // Deep copy stages to avoid mutating until saved
     draftStages = JSON.parse(JSON.stringify(p.stages || []));
     renderDraftStages();
-    
+
     // Change labels
     const titleEl = document.querySelector('#tab-create-product .page-title');
     if (titleEl) titleEl.innerText = 'Edit Product';
-    
+
     const btnEl = document.querySelector('#tab-create-product .btn-primary');
     if (btnEl) btnEl.innerText = 'Update Product';
-    
+
     showTab('create-product');
 }
 
@@ -1142,7 +1142,7 @@ function renderDraftStages() {
             const availableItems = items.filter(it => !s.items.some(si => si.itemId === it.id));
             initSearchableDropdown(`si-sel-draft-${s.id}`, availableItems, null, 'code');
         });
-        
+
         // Initialize Sortable for stages (only once)
         if (draftStages.length && !el.dataset.sortableInitialized) {
             el.dataset.sortableInitialized = 'true';
@@ -1160,7 +1160,7 @@ function renderDraftStages() {
                 }
             });
         }
-        
+
         // Initialize Sortable for items within stages (re-created every render)
         if (draftStages.length) {
             el.querySelectorAll('.sortable-items').forEach(itemsEl => {
@@ -1246,7 +1246,7 @@ function addStageItem(pid, sid) {
         const it = items.find(x => String(x.id) === String(si.itemId));
         if (it) currentSum += si.qty;
     }));
-    
+
     if (currentSum + qty > batch) {
         showNotification(`Cannot add material. The total would exceed the target batch size of ${batch} kg! Current total is ${currentSum.toFixed(2)} kg.`, 'error');
         return;
@@ -1268,9 +1268,9 @@ function updateStageItemQty(pid, sid, itemId, val) {
     const p = getTargetProduct(pid); if (!p) return;
     const s = p.stages.find(x => x.id === sid);
     const si = s.items.find(x => x.itemId === itemId);
-    if (si) { 
-        si.qty = v; 
-        
+    if (si) {
+        si.qty = v;
+
         if (pid === 'draft') {
             // Update sum directly without re-rendering to preserve focus!
             const batch = parseFloat(document.getElementById('prod-batch').value) || 100;
@@ -1278,15 +1278,15 @@ function updateStageItemQty(pid, sid, itemId, val) {
             draftStages.forEach(st => st.items.forEach(item => {
                 currentSum += (parseFloat(item.qty) || 0);
             }));
-            
+
             const statusWrap = document.getElementById('draft-status-wrap');
             if (statusWrap) {
                 const isBalanced = Math.abs(currentSum - batch) < 0.001;
-                statusWrap.innerHTML = isBalanced 
+                statusWrap.innerHTML = isBalanced
                     ? `<span class="chip chip-green">Balanced (${currentSum.toFixed(2)} / ${batch} kg)</span>`
                     : `<span class="chip chip-red">Unbalanced (Sum: ${currentSum.toFixed(2)} kg)</span>`;
             }
-            
+
             // Show tick mark!
             const row = document.querySelector(`.stage-item-row[data-id="${itemId}"]`);
             if (row) {
@@ -1297,7 +1297,7 @@ function updateStageItemQty(pid, sid, itemId, val) {
                 }
             }
         } else {
-            syncOrRender(pid, p); 
+            syncOrRender(pid, p);
         }
     }
 }
@@ -1317,10 +1317,10 @@ function toggleProductDetails(pid) {
 
         // Re-init dropdowns when shown
         const p = products.find(x => String(x.id) === String(pid));
-            p.stages.forEach(s => {
-                const availableItems = items.filter(it => !s.items.some(si => si.itemId === it.id));
-                initSearchableDropdown(`si-sel-${p.id}-${s.id}`, availableItems, null, 'code');
-            });
+        p.stages.forEach(s => {
+            const availableItems = items.filter(it => !s.items.some(si => si.itemId === it.id));
+            initSearchableDropdown(`si-sel-${p.id}-${s.id}`, availableItems, null, 'code');
+        });
     } else if (body) {
         body.style.display = 'none';
         if (icon) icon.style.transform = 'rotate(0deg)';
@@ -1601,7 +1601,7 @@ async function renderHistory() {
             const isCompleted = status === 'completed';
             const statusChip = isCompleted ? `<span class="chip" style="background:#dcfce7;color:#15803d;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 11 15 16 9"></polyline></svg>Completed</span>` : `<span class="chip" style="background:#fee2e2;color:#b91c1c;font-weight:600;">Pending</span>`;
             const completeBtn = (currentRole === 'manager' && !isCompleted) ? `<button class="btn btn-xs" onclick="completeBatch(${b.id})" style="background:#0f172a;color:#fff;margin-left:4px;font-weight:600;border:none;border-radius:4px;cursor:pointer;">Complete</button>` : '';
-            
+
             return `<tr>
                 <td><span class="chip chip-accent">${b.batch_number}</span></td>
                 <td>${dt}</td>
@@ -1753,7 +1753,7 @@ async function exportUserPDF(arg1 = null, qtyIn = null, stagesIn = null, bnIn = 
         const descObj = JSON.parse(p.desc);
         gloss = descObj.gloss || '—';
         viscosity = descObj.viscosity || '—';
-    } catch(e) {
+    } catch (e) {
         gloss = p.desc || '—';
     }
 
@@ -1919,9 +1919,9 @@ function populateEstSelect() {
 
     // Split selection logic (identical to Mix Calculator)
     initSplitSearchDropdowns(
-        'est-group', 
-        'est-product', 
-        products, 
+        'est-group',
+        'est-product',
+        products,
         () => { updateEstimate(); },
         'group_code'
     );
@@ -2117,7 +2117,7 @@ function exportPDF() {
         const descObj = JSON.parse(p.desc);
         gloss = descObj.gloss || '—';
         viscosity = descObj.viscosity || '—';
-    } catch(e) {
+    } catch (e) {
         gloss = p.desc || '—';
     }
 
@@ -2150,7 +2150,8 @@ function exportPDF() {
                 <td style="padding: 10px 0; font-size: 13px; color: #475569; border-bottom: 1px solid #f1f5f9; text-align: right; padding-right: 20px;">Rs. ${ratePerLitre.toFixed(2)}</td>
                 <td style="padding: 10px 0; font-size: 13px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #f1f5f9; text-align: right;">Rs. ${it.cost.toFixed(2)}</td>
             </tr>
-        `; }).join('');
+        `;
+        }).join('');
 
         return `
             <tr style="background: #f8fafc;">
@@ -2317,10 +2318,10 @@ function calculatePurchaseTotals() {
     const packSize = parseFloat(document.getElementById('purch-pack-size').value) || 0;
     const packs = parseFloat(document.getElementById('purch-packs').value) || 0;
     const unitPrice = parseFloat(document.getElementById('purch-price-bulk').value) || 0;
-    
+
     const totalQty = packSize * packs;
     const totalPrice = totalQty * unitPrice;
-    
+
     document.getElementById('purch-qty-bulk').value = totalQty.toFixed(2);
     document.getElementById('purch-total-price').value = totalPrice.toFixed(2);
 }
@@ -2331,23 +2332,23 @@ async function renderPurchases() {
     try {
         const res = await fetch('/api/purchases');
         const data = await res.json();
-        
+
         // Group by purchase_no or fallback to vendor/reference/time
         const groupedPurchases = {};
         data.forEach(p => {
             let vendor = p.vendor || 'Unknown Vendor';
             let ref = p.reference || '';
             const purchaseNo = p.purchase_no || 0;
-            
+
             // Backwards compatibility for old records with "vendor (Ref: ...)" format
             if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
                 const match = vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
                 vendor = match[1];
                 ref = match[2];
             }
-            
+
             const key = purchaseNo ? String(purchaseNo) : (vendor + '|' + ref + '|' + new Date(p.created_at).getTime().toString().substring(0, 8)); // group by approximate time
-            
+
             if (!groupedPurchases[key]) {
                 groupedPurchases[key] = {
                     purchase_no: purchaseNo,
@@ -2357,9 +2358,9 @@ async function renderPurchases() {
                     items: []
                 };
             }
-            
+
             const it = items.find(x => x.id == p.itemId);
-            
+
             groupedPurchases[key].items.push({
                 name: it ? it.name : `RM ${p.itemId}`,
                 qty: parseFloat(p.qty),
@@ -2369,20 +2370,20 @@ async function renderPurchases() {
                 packs: p.packs ? parseFloat(p.packs) : null
             });
         });
-        
+
         const purchasesSummary = Object.values(groupedPurchases);
         currentPurchases = purchasesSummary;
-        
+
         if (!purchasesSummary.length) {
             tb.innerHTML = '<tr><td colspan="6" class="empty">No purchases yet.</td></tr>';
             return;
         }
-        
+
         tb.innerHTML = purchasesSummary.map((p, i) => {
             const vendor = p.vendor;
             const ref = p.reference || '—';
             const sNo = p.purchase_no ? '#' + p.purchase_no : '—';
-            
+
             return `<tr onclick="showRecentPurchaseDetails(${i})" style="cursor:pointer;">
                 <td><strong>${sNo}</strong></td>
                 <td>${formatDate(p.created_at)}</td>
@@ -2408,15 +2409,15 @@ function addPurchaseItemToDraft() {
     }
     const packSize = parseFloat(document.getElementById('purch-pack-size').value) || 1;
     const packs = parseFloat(document.getElementById('purch-packs').value) || 0;
-    
+
     draftPurchaseItems.push({ itemId, qty, price, name: it.name, unit: it.unit, code: it.code, packSize, packs });
-    
+
     document.getElementById('purch-pack-size').value = '';
     document.getElementById('purch-packs').value = '';
     document.getElementById('purch-qty-bulk').value = '';
     document.getElementById('purch-price-bulk').value = '';
     document.getElementById('purch-total-price').value = '';
-    
+
     renderDraftPurchaseItems();
 }
 
@@ -2500,7 +2501,7 @@ async function renderDailyReport(date) {
         const put = document.getElementById('rep-purch-tbody');
         const totalSpend = data.purchases.reduce((a, p) => a + p.items.reduce((acc, it) => acc + (it.qty * it.price), 0), 0);
         document.getElementById('rep-total-spend').textContent = 'Rs. ' + totalSpend.toLocaleString();
-        
+
         put.innerHTML = data.purchases.map((p, idx) => {
             let vendor = p.vendor || 'Unknown Vendor';
             let ref = p.reference || '';
@@ -2511,7 +2512,7 @@ async function renderDailyReport(date) {
             }
             if (!ref) ref = '—';
             const sNo = p.purchase_no ? '#' + p.purchase_no : '—';
-            
+
             return `<tr onclick="showPurchaseDetails(${idx})" style="cursor:pointer;">
                 <td><strong>${sNo}</strong></td>
                 <td>${new Date(p.created_at).toLocaleTimeString()}</td>
@@ -2552,12 +2553,12 @@ function exportPurchasesPDF() {
             vendorName = match[1];
             ref = match[2];
         }
-        
+
         const itemDetails = p.items.map(it => {
             const packStr = it.packSize ? `(${it.packs ? it.packs.toFixed(2) : 0} x ${it.packSize.toFixed(2)})` : '';
             return `${esc(it.name)} ${packStr}`.trim();
         }).join('<br>');
-        
+
         return `
             <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #ddd;">
@@ -2625,18 +2626,18 @@ function exportPurchasesPDF() {
 function printPurchaseSlip(p) {
     let vendor = p.vendor || 'Unknown Vendor';
     let ref = p.reference || '';
-    
+
     if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
         const match = vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
         vendor = match[1];
         ref = match[2];
     }
-    
+
     if (!ref) ref = '—';
-    
+
     const dateFormatted = formatDate(p.created_at);
     let total = 0;
-    
+
     const itemsHTML = p.items.map(it => {
         const sub = it.qty * it.price;
         total += sub;
@@ -2717,15 +2718,15 @@ function printRecentPurchase(idx) {
 function showPurchaseDetailsModal(p) {
     let vendor = p.vendor || 'Unknown Vendor';
     let ref = p.reference || '';
-    
+
     if (!ref && vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/)) {
         const match = vendor.match(/^(.*?)\s*\(Ref:\s*(.*?)\)$/);
         vendor = match[1];
         ref = match[2];
     }
-    
+
     if (!ref) ref = '—';
-    
+
     let total = 0;
     const itemsHTML = p.items.map(it => {
         const sub = it.qty * it.price;
@@ -2767,7 +2768,7 @@ function showPurchaseDetailsModal(p) {
             </div>
         </div>
     `;
-    
+
     const div = document.createElement('div');
     div.id = 'purchase-modal-container';
     div.innerHTML = modalHTML;
@@ -2791,13 +2792,13 @@ function closePurchaseModal() {
 function exportPurchaseSlipPDF() {
     const vendor = document.getElementById('purch-vendor-bulk').value.trim();
     const reference = document.getElementById('purch-ref-bulk') ? document.getElementById('purch-ref-bulk').value.trim() : '';
-    
+
     if (!vendor) { showNotification("Enter Vendor Name.", 'warning'); return; }
     if (!draftPurchaseItems.length) { showNotification("No items in the purchase list.", 'warning'); return; }
-    
+
     const dateFormatted = formatDate(new Date());
     let total = 0;
-    
+
     const itemsHTML = draftPurchaseItems.map(p => {
         const sub = p.qty * p.price;
         total += sub;
@@ -2883,13 +2884,13 @@ function initSplitSearchDropdowns(groupId, productId, data, onSelect, codeKey = 
 
         // Refresh product dropdown with filtered items
         const filtered = data.filter(p => (p[codeKey] || '') === grp.id);
-        
+
         // Clean up old results/listeners for product input
         const clone = prodInput.cloneNode(true);
         prodInput.parentNode.replaceChild(clone, prodInput);
-        
+
         initSearchableDropdown(productId, filtered, onSelect, codeKey);
-        
+
         // Focus product input for better UX
         clone.focus();
     }, 'id');
@@ -3043,16 +3044,16 @@ function esc(str) {
 }
 
 // Enter key navigation between inputs
-document.addEventListener('keydown', function(e) {
+document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
         if (e.target.tagName === 'TEXTAREA') return;
-        
+
         // Scope to closest form/container for better flow
         const container = e.target.closest('.form-grid') || e.target.closest('.card') || document.querySelector('.anim:not([style*="display:none"])') || document;
-        
+
         const focusable = Array.from(container.querySelectorAll('input:not([readonly]):not([disabled]), button.btn-brand, button.btn-primary, button.btn-reduce-stock'));
         const index = focusable.indexOf(e.target);
-        
+
         if (index > -1 && index < focusable.length - 1) {
             const next = focusable[index + 1];
             next.focus();
@@ -3060,4 +3061,92 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+// SECURITY / PASSWORD CHANGING
+// ------------------------------------------
+async function changeAdminPassword() {
+    const currentPw = document.getElementById('admin-current-pw').value;
+    const newPw = document.getElementById('admin-new-pw').value;
+    const confirmPw = document.getElementById('admin-confirm-pw').value;
+
+    if (!currentPw || !newPw || !confirmPw) {
+        showNotification('All fields are required.', 'error');
+        return;
+    }
+
+    if (newPw !== confirmPw) {
+        showNotification('New passwords do not match.', 'error');
+        return;
+    }
+
+    // Client-side complexity check
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!passwordRegex.test(newPw)) {
+        showNotification('Password must be at least 8 characters long, and contain at least 1 uppercase letter, 1 number, and 1 special character.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showNotification('Admin password updated successfully!', 'success');
+            // Clear inputs
+            document.getElementById('admin-current-pw').value = '';
+            document.getElementById('admin-new-pw').value = '';
+            document.getElementById('admin-confirm-pw').value = '';
+        } else {
+            showNotification(data.error || 'Failed to update admin password.', 'error');
+        }
+    } catch (e) {
+        showNotification('An error occurred. Please try again.', 'error');
+    }
+}
+
+async function changeManagerPassword() {
+    const newPw = document.getElementById('manager-new-pw').value;
+    const confirmPw = document.getElementById('manager-confirm-pw').value;
+
+    if (!newPw || !confirmPw) {
+        showNotification('All fields are required.', 'error');
+        return;
+    }
+
+    if (newPw !== confirmPw) {
+        showNotification('Passwords do not match.', 'error');
+        return;
+    }
+
+    // Client-side complexity check
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!passwordRegex.test(newPw)) {
+        showNotification('Password must be at least 8 characters long, and contain at least 1 uppercase letter, 1 number, and 1 special character.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/change-manager-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newPassword: newPw })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showNotification('Manager password updated successfully!', 'success');
+            // Clear inputs
+            document.getElementById('manager-new-pw').value = '';
+            document.getElementById('manager-confirm-pw').value = '';
+        } else {
+            showNotification(data.error || 'Failed to update manager password.', 'error');
+        }
+    } catch (e) {
+        showNotification('An error occurred. Please try again.', 'error');
+    }
+}
 
